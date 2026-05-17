@@ -19,6 +19,22 @@
   #z-banner .sub {
     font-size: 14px; color: #9ac; margin-top: 4px; letter-spacing: 0.01em;
   }
+  #prefetch-indicator {
+    position: absolute; bottom: 16px; left: 22px;
+    background: rgba(8,12,22,0.78);
+    border: 1px solid #345; border-radius: 6px;
+    padding: 6px 12px; color: #cde; font-size: 12px;
+    pointer-events: none;
+  }
+  #prefetch-indicator .bar {
+    display: block; width: 180px; height: 4px;
+    background: #234; border-radius: 2px; margin-top: 4px;
+    overflow: hidden;
+  }
+  #prefetch-indicator .bar .fill {
+    height: 100%; background: linear-gradient(90deg, #6ad, #fc6);
+    width: 0%; transition: width 0.15s;
+  }
   #show-ui-btn, #toggle-legend-btn {
     position: absolute; right: 16px;
     background: rgba(8,12,22,0.78); color: #cde;
@@ -287,6 +303,11 @@
 <button id="show-ui-btn" title="Show controls (H)">⌂ Show controls</button>
 <button id="toggle-legend-btn" title="Show / hide legends (L)">☷ Hide legends</button>
 
+<div id="prefetch-indicator" class="ui-hidden">
+  <span id="prefetch-label">Preloading…</span>
+  <span class="bar"><span class="fill" id="prefetch-fill"></span></span>
+</div>
+
 <div id="halo-popup" class="ui-hidden"></div>
 
 <div id="outreach-bar">
@@ -355,10 +376,10 @@
     <span style="display:flex;gap:6px;align-items:center;margin-left:18px;">
       <span style="font-size:12px;color:#789">Gas mode:</span>
       <label style="border:1px solid #345;padding:2px 9px;border-radius:4px;cursor:pointer;">
-        <input type="radio" name="gas-mode" id="gas-mode-part" checked> particles
+        <input type="radio" name="gas-mode" id="gas-mode-part"> particles
       </label>
       <label style="border:1px solid #345;padding:2px 9px;border-radius:4px;cursor:pointer;">
-        <input type="radio" name="gas-mode" id="gas-mode-vol"> volume
+        <input type="radio" name="gas-mode" id="gas-mode-vol" checked> volume
       </label>
     </span>
     <span style="display:flex;gap:6px;align-items:center;margin-left:18px;">
@@ -959,9 +980,13 @@ async function loadVolume(frame, kind) {
 }
 
 async function loadSnapshot(frame) {
-  const tasks = [loadOne(frame, 'gas'), loadOne(frame, 'dm')];
-  if (volMesh.visible || gasModeIsVolume()) tasks.push(loadVolume(frame));
-  const [gas, dm, vol] = await Promise.all(tasks);
+  // Only fetch the channel we actually need for the active mode -- saves
+  // ~7 MB / frame of unnecessary network traffic on initial load.
+  const volMode = gasModeIsVolume();
+  const dmTask  = loadOne(frame, 'dm');
+  const gasTask = volMode ? Promise.resolve(null) : loadOne(frame, 'gas');
+  const volTask = volMode ? loadVolume(frame)    : Promise.resolve(null);
+  const [dm, gas, vol] = await Promise.all([dmTask, gasTask, volTask]);
   const meta = manifest.snapshots.find(s => s.frame === frame);
   return { gas, dm, vol, meta };
 }
@@ -1164,7 +1189,6 @@ function applyColorBy(idx) {
 }
 colorBySelect.addEventListener('change', async () => {
   applyColorBy(parseInt(colorBySelect.value));
-  // If volume mode is active, swap the loaded volume binary for the matching kind.
   if (gasModeIsVolume()) {
     const f = parseInt(timeSlider.value);
     const v = await loadVolume(f);
@@ -1172,6 +1196,8 @@ colorBySelect.addEventListener('change', async () => {
       buildVolumeTexture(v.data, v.res, v.channels);
       volMaterial.uniforms.u_renderStyle.value = (v.kind === 'rho') ? 1 : 0;
     }
+    // Prefetch the new color's full set of volumes for smooth Play later.
+    prefetchVolumes(getActiveVolKind());
   }
 });
 
@@ -1278,13 +1304,21 @@ canvas.addEventListener('pointerdown', (e) => {
 
 async function onGasModeChange() {
   syncToggles();
+  const f = parseInt(timeSlider.value);
   if (gasModeIsVolume()) {
-    const f = parseInt(timeSlider.value);
     const v = await loadVolume(f);
     if (v) {
       buildVolumeTexture(v.data, v.res, v.channels);
       volMaterial.uniforms.u_renderStyle.value = (v.kind === 'rho') ? 1 : 0;
     }
+    // Prefetch the rest of this color's volumes for smooth Play.
+    prefetchVolumes(getActiveVolKind());
+  } else {
+    // Switching to particles -- fetch the current frame's gas bin first,
+    // apply it to the geometry, then kick off the background prefetch.
+    const gas = await loadOne(f, 'gas');
+    if (gas) gasGeometry = applyToPoints(gas, gasGeometry, gasPoints);
+    prefetchParticles();
   }
 }
 gasModePart.addEventListener('change', onGasModeChange);
@@ -1300,11 +1334,49 @@ playBtn.addEventListener('click', () => {
       timeSlider.value = f;
       const snap = await loadSnapshot(f);
       if (snap) applySnapshot(snap);
-    }, 800);
+    }, 1200);   // a touch slower so first-pass network hiccups don't show
   } else {
     clearInterval(playTimer);
   }
 });
+
+// ---- Background prefetch (lazy, by user-active mode) ----
+const prefetchEl   = document.getElementById('prefetch-indicator');
+const prefetchLbl  = document.getElementById('prefetch-label');
+const prefetchFill = document.getElementById('prefetch-fill');
+
+const prefetched = new Set();    // tag of fully-prefetched data sets
+let prefetchChain = Promise.resolve();   // serial queue (one set at a time)
+let hideTimer = null;
+
+async function _runPrefetch(label, tag, fetchFn) {
+  if (prefetched.has(tag)) return;
+  prefetched.add(tag);
+  if (!manifest || !manifest.snapshots) return;
+  const frames = manifest.snapshots.map(s => s.frame);
+  clearTimeout(hideTimer);
+  prefetchEl.classList.remove('ui-hidden');
+  const showLabel = (CURRENT_LANG === 'ja') ? `事前ロード ${label}` : `Preloading ${label}`;
+  for (let i = 0; i < frames.length; i++) {
+    prefetchLbl.textContent = `${showLabel}: ${i + 1}/${frames.length}`;
+    prefetchFill.style.width = `${Math.round(100 * (i + 1) / frames.length)}%`;
+    await fetchFn(frames[i]);
+  }
+  prefetchLbl.textContent =
+    (CURRENT_LANG === 'ja') ? `${label} ✓` : `${label} ready ✓`;
+  hideTimer = setTimeout(() => prefetchEl.classList.add('ui-hidden'), 1200);
+}
+
+function schedulePrefetch(label, tag, fetchFn) {
+  prefetchChain = prefetchChain.then(() => _runPrefetch(label, tag, fetchFn));
+}
+
+function prefetchDM()       { schedulePrefetch('DM',       'dm',  f => loadOne(f, 'dm')); }
+function prefetchParticles(){ schedulePrefetch('particles','gas', f => loadOne(f, 'gas')); }
+function prefetchVolumes(kind) {
+  const k = kind || getActiveVolKind();
+  schedulePrefetch(`volume (${k})`, `vol_${k}`, f => loadVolume(f, k));
+}
 
 // ---- Hide / show all overlays ----
 const panelEl   = document.getElementById('panel');
@@ -1746,6 +1818,14 @@ document.querySelectorAll('.lang-select').forEach(b => {
   const snap = await loadSnapshot(13);
   applySnapshot(snap);
   animate();
+
+  // Background prefetch: DM (always shown) + current-quantity volume bins.
+  // Particles are NOT prefetched until the user actually clicks "particles".
+  setTimeout(() => {
+    prefetchDM();
+    if (gasModeIsVolume()) prefetchVolumes(getActiveVolKind());
+    else                    prefetchParticles();
+  }, 600);
 })();
 </script>
 </body>
