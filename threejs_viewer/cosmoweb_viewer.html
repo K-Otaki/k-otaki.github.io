@@ -1,0 +1,1752 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Cosmological Hydrodynamics — Interactive Viewer</title>
+<style>
+  html, body { margin: 0; padding: 0; overflow: hidden; background: #000; color: #cde; font-family: sans-serif; }
+  #c { display: block; }
+  #z-banner {
+    position: absolute; top: 22px; left: 50%; transform: translateX(-50%);
+    text-align: center; pointer-events: none;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 2px 12px rgba(0,0,0,0.85);
+  }
+  #z-banner .big {
+    font-size: 45px; font-weight: 600; color: #fff;
+    letter-spacing: 0.02em;
+  }
+  #z-banner .sub {
+    font-size: 14px; color: #9ac; margin-top: 4px; letter-spacing: 0.01em;
+  }
+  #show-ui-btn, #toggle-legend-btn {
+    position: absolute; right: 16px;
+    background: rgba(8,12,22,0.78); color: #cde;
+    border: 1px solid #345; border-radius: 6px;
+    padding: 6px 12px; font-size: 13px; cursor: pointer;
+  }
+  #show-ui-btn { bottom: 16px; display: none; }
+  #toggle-legend-btn { bottom: 60px; }
+  #show-ui-btn:hover, #toggle-legend-btn:hover { background: rgba(20,30,50,0.85); }
+  .ui-hidden { display: none !important; }
+
+  /* Intro modal */
+  #intro-overlay {
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.78);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+  }
+  #intro-card {
+    max-width: 640px; padding: 28px 32px;
+    background: linear-gradient(180deg, rgba(20,30,55,0.95), rgba(10,15,30,0.96));
+    border: 1px solid #456; border-radius: 10px;
+    color: #cde; line-height: 1.55;
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+  }
+  #intro-card h2 { margin: 0 0 8px; color: #fff; font-size: 22px; }
+  #intro-card .sub { color: #99c; font-size: 13px; margin-bottom: 16px; }
+  #intro-card p { margin: 8px 0; }
+  #intro-card .key {
+    display: inline-block; padding: 1px 8px; border: 1px solid #567;
+    border-radius: 4px; background: rgba(20,30,55,0.8); color: #fff;
+    font-family: monospace; font-size: 12px; margin: 0 1px;
+  }
+  #intro-card .actions {
+    margin-top: 22px; display: flex; gap: 10px; justify-content: flex-end;
+    align-items: center;
+  }
+  #intro-card button {
+    background: #345; color: #fff; border: 1px solid #678; border-radius: 5px;
+    padding: 8px 18px; font-size: 14px; cursor: pointer;
+  }
+  #intro-card button:hover { background: #456; }
+  #intro-card .lang-select {
+    background: transparent; color: #9ac; border: 1px solid #345;
+    border-radius: 4px; padding: 3px 8px; font-size: 12px;
+    cursor: pointer;
+  }
+  #intro-card .lang-select.active { background: #234; color: #fff; }
+
+  /* Outreach panel (below the z banner) -- presets + tour + compare */
+  #outreach-bar {
+    position: absolute; top: 110px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 8px; align-items: center;
+    background: rgba(8,12,22,0.72);
+    border: 1px solid #345; border-radius: 6px;
+    padding: 6px 10px; font-size: 12px; color: #cde;
+    z-index: 50;
+  }
+  #outreach-bar button, #outreach-bar select {
+    background: rgba(20,30,50,0.5); color: #cde;
+    border: 1px solid #345; border-radius: 4px;
+    padding: 4px 10px; font-size: 12px; cursor: pointer;
+  }
+  #outreach-bar button:hover { background: rgba(40,60,90,0.7); }
+  #outreach-bar .sep {
+    width: 1px; height: 18px; background: #345; margin: 0 4px;
+  }
+  #tour-caption {
+    position: absolute; top: 170px; left: 50%; transform: translateX(-50%);
+    max-width: 80%; padding: 10px 18px;
+    background: rgba(8,12,22,0.85); border: 1px solid #345; border-radius: 6px;
+    color: #fff; font-size: 16px; text-align: center;
+    pointer-events: none;
+    z-index: 50;
+  }
+  #tour-caption .sub { color: #9ac; font-size: 12px; margin-top: 4px; }
+
+  /* Halo popup (shown on click) */
+  #halo-popup {
+    position: absolute; background: rgba(8, 12, 22, 0.92);
+    border: 1px solid #6ad; border-radius: 6px;
+    padding: 8px 12px; color: #cde; font-size: 12px;
+    pointer-events: none;
+    transform: translate(-50%, calc(-100% - 12px));
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+    z-index: 500;
+  }
+  #halo-popup b { color: #fff; }
+  #halo-popup .M { color: #fc6; font-variant-numeric: tabular-nums; }
+
+  /* Vertical temperature colorbar on the right edge. Shifted lower than the
+     HUD/help block to leave clear space for the page header. */
+  #colorbar {
+    position: absolute; right: 22px; top: 280px;
+    display: flex; align-items: center; gap: 8px;
+    pointer-events: none;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.85);
+  }
+  #colorbar .bar {
+    width: 16px; height: 180px;
+    background: linear-gradient(to top,
+      rgb(13, 26, 153) 0%,
+      rgb(26, 140, 242) 20%,
+      rgb(51, 217, 115) 40%,
+      rgb(242, 230, 51) 55%,
+      rgb(255, 140, 26) 70%,
+      rgb(242, 51, 26) 85%,
+      rgb(255, 242, 230) 100%);
+    border: 1px solid rgba(255,255,255,0.25);
+    border-radius: 3px;
+  }
+  #colorbar .ticks {
+    display: flex; flex-direction: column; justify-content: space-between;
+    height: 180px; color: #cde; font-size: 11px;
+    font-variant-numeric: tabular-nums;
+  }
+  #colorbar .title {
+    position: absolute; right: 0; top: -22px;
+    color: #cde; font-size: 12px; white-space: nowrap;
+  }
+  #colorbar .caption {
+    position: absolute; right: 0; top: calc(180px + 8px);
+    color: #99c; font-size: 11px; max-width: 220px; text-align: right;
+    line-height: 1.35;
+  }
+  #scalebar .caption {
+    color: #99c; font-size: 11px; margin-top: 4px; font-style: italic;
+  }
+
+  /* Dynamic scale bar (length scale at current zoom), top-left. */
+  #scalebar {
+    position: absolute; left: 22px; top: 30px;
+    pointer-events: none;
+    text-shadow: 0 1px 4px rgba(0,0,0,0.85);
+  }
+  #scalebar .label {
+    color: #cde; font-size: 13px; margin-bottom: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  #scalebar .bar {
+    height: 3px; background: #fff;
+    box-shadow: 0 0 6px rgba(255,255,255,0.5);
+    border-left:  2px solid #fff;
+    border-right: 2px solid #fff;
+    padding-left: 0; padding-right: 0;
+    position: relative;
+  }
+  /* Small end-caps */
+  #scalebar .bar::before, #scalebar .bar::after {
+    content: ''; position: absolute; top: -4px; width: 2px; height: 11px; background: #fff;
+  }
+  #scalebar .bar::before { left: -1px; }
+  #scalebar .bar::after  { right: -1px; }
+  #panel {
+    position: absolute; bottom: 20px; left: 20px; right: 20px;
+    background: rgba(8, 12, 22, 0.78); border: 1px solid #345;
+    padding: 12px 18px; border-radius: 8px;
+    display: grid; gap: 8px;
+    grid-template-columns: 110px 1fr 90px;
+    align-items: center;
+    color: #cde; font-size: 13px;
+  }
+  #panel .row-toggle, #panel .row-target {
+    grid-column: 1 / -1;
+    display: flex; gap: 18px; align-items: center;
+    padding-bottom: 4px; border-bottom: 1px solid #234;
+    margin-bottom: 4px;
+  }
+  #panel .row-target { font-size: 12px; color: #99c; }
+  #panel .row-target input[type=number] {
+    width: 70px; padding: 2px 6px;
+    background: rgba(8,12,22,0.6); color: #cde;
+    border: 1px solid #345; border-radius: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  #panel .row-target button {
+    background: #234; color: #cde; border: 1px solid #456; border-radius: 4px;
+    padding: 2px 9px; cursor: pointer; font-size: 12px;
+  }
+  #panel .row-target button:hover { background: #345; }
+  #panel .row-target .marker-dot {
+    width: 10px; height: 10px; border: 1.5px solid #ff9; border-radius: 50%;
+    box-shadow: 0 0 6px rgba(255, 240, 100, 0.7) inset;
+    background: transparent;
+  }
+  #panel .row-toggle label {
+    display: flex; align-items: center; gap: 6px;
+    cursor: pointer; padding: 3px 9px; border-radius: 4px;
+    border: 1px solid #345; background: rgba(20,30,50,0.5);
+    user-select: none;
+  }
+  #panel .row-toggle label.on { background: rgba(60,120,200,0.35); border-color: #6ad; }
+  #panel .row-toggle input[type=checkbox] { accent-color: #6cf; }
+  #panel .row-toggle .gas-dot   { width: 10px; height: 10px; border-radius: 50%; background: linear-gradient(135deg,#fc6,#f33); }
+  #panel .row-toggle .dm-dot    { width: 10px; height: 10px; border-radius: 50%; background: linear-gradient(135deg,#8cf,#fff); }
+  #panel input[type=range] { width: 100%; }
+  #panel button {
+    background: #234; color: #cde; border: 1px solid #456; border-radius: 4px;
+    padding: 4px 10px; cursor: pointer; font-size: 13px;
+  }
+  #panel button:hover { background: #345; }
+  #panel .val { font-variant-numeric: tabular-nums; color: #fff; text-align: right; }
+  #panel .label { color: #99c; }
+  #panel .top {
+    grid-column: 1 / -1;
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 12px; color: #99b; margin-bottom: 4px;
+  }
+  #panel .top .big {
+    font-size: 22px; color: #fff; font-variant-numeric: tabular-nums;
+  }
+  #panel .top .min-btn {
+    background: none; color: #9ac; border: 1px solid #345;
+    border-radius: 4px; padding: 1px 9px; font-size: 14px; cursor: pointer;
+    line-height: 1;
+  }
+  #panel .top .min-btn:hover { color: #fff; background: #234; }
+  #help {
+    position: absolute; top: 16px; right: 18px;
+    background: rgba(8, 12, 22, 0.75); border: 1px solid #345;
+    padding: 8px 12px; border-radius: 6px; font-size: 12px; color: #abc;
+    max-width: 260px;
+  }
+  #help b { color: #cde; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="z-banner">
+  <div class="big">z = <span id="z-big">0.00</span></div>
+  <div class="sub" id="z-banner-sub">universe age 13.80 Gyr (today)</div>
+</div>
+
+<div id="intro-overlay" class="ui-hidden">
+  <div id="intro-card">
+    <div style="display:flex;gap:6px;float:right">
+      <button class="lang-select active" data-lang="en">EN</button>
+      <button class="lang-select"        data-lang="ja">日本語</button>
+    </div>
+    <h2 id="intro-title">Cosmological Hydrodynamics — Interactive Viewer</h2>
+    <div class="sub" id="intro-sub">13.8 billion years of cosmic structure formation in your browser</div>
+    <div id="intro-body">
+      <p>You are looking at a simulated 100 Mpc/h cube of the universe, evolved
+      from 50 Myr after the Big Bang to today (z = 49 → 0).</p>
+      <p><b>Gas particles</b> are colored by their physical state:
+      blue = cool intergalactic gas (~10<sup>4</sup> K),
+      red/white = X-ray-hot halo gas (~10<sup>7</sup> K).
+      <b>Dark matter</b> traces the gravitational scaffolding underneath.</p>
+      <p style="color:#aac;font-size:13px">
+        <span class="key">drag</span> to rotate, <span class="key">wheel</span> to zoom,
+        <span class="key">shift+click</span> to refocus,
+        <span class="key">H</span> to hide UI, <span class="key">L</span> to hide legends.
+      </p>
+    </div>
+    <div class="actions">
+      <label style="font-size:12px;color:#9ac;cursor:pointer;">
+        <input type="checkbox" id="intro-skip"> don't show again
+      </label>
+      <button id="intro-close">Start exploring →</button>
+    </div>
+  </div>
+</div>
+
+<button id="show-ui-btn" title="Show controls (H)">⌂ Show controls</button>
+<button id="toggle-legend-btn" title="Show / hide legends (L)">☷ Hide legends</button>
+
+<div id="halo-popup" class="ui-hidden"></div>
+
+<div id="outreach-bar">
+  <button id="preset-full"   title="Reset camera to full-box view">⛶ Full box</button>
+  <button id="preset-halo"   title="Zoom to the most massive halo">★ Top halo</button>
+  <button id="preset-void"   title="Move to a cosmic void">○ Void</button>
+  <span class="sep"></span>
+  <button id="tour-btn"  title="Start / pause / resume guided tour">▶ Tour</button>
+  <button id="tour-stop-btn" class="ui-hidden" title="Stop tour and keep current state">■ Stop</button>
+  <button id="compare-btn" title="Alternate gas / DM every 0.6 s">⇄ Compare gas/DM</button>
+  <button id="arrows-btn" title="Show DM halo bulk-velocity arrows">→ Velocity</button>
+  <button id="rotate-btn" title="Auto-rotate camera around target">⟳ Auto-rotate</button>
+  <span class="sep"></span>
+  <span style="font-size:11px;color:#789">lang:</span>
+  <select id="lang-select">
+    <option value="en">EN</option>
+    <option value="ja">日本語</option>
+  </select>
+</div>
+
+<div id="tour-caption" class="ui-hidden"></div>
+
+<div id="colorbar">
+  <div class="ticks" id="cbar-ticks">
+    <span>10<sup>7.5</sup> K</span>
+    <span>10<sup>6.6</sup></span>
+    <span>10<sup>5.75</sup></span>
+    <span>10<sup>4.9</sup></span>
+    <span>10<sup>4</sup> K</span>
+  </div>
+  <div class="bar"></div>
+  <div class="title" id="cbar-title">Gas T</div>
+  <div class="caption" id="cbar-caption">Red = hot halo gas (X-ray)<br>Blue = cool diffuse IGM</div>
+</div>
+
+<div id="scalebar">
+  <div class="label" id="scalebar-label">— Mpc/<i>h</i></div>
+  <div class="bar"   id="scalebar-bar" style="width: 100px;"></div>
+  <div class="caption" id="scalebar-caption">— roughly the size of one galaxy cluster</div>
+</div>
+
+<div id="help">
+  <b>Controls</b><br>
+  Left drag: orbit around marker<br>
+  Right drag: pan<br>
+  Wheel: zoom<br>
+  Shift+click: refocus marker<br>
+  R: reset camera and center<br>
+  Space: play/pause time<br>
+  H: hide / show this UI<br>
+  L: hide / show legends
+</div>
+
+<div id="panel">
+  <div class="top">
+    <span>Snapshot <span id="snap-idx">14</span> / 14</span>
+    <span class="big">z = <span id="z-val">0.00</span> &nbsp; <span style="font-size:14px;color:#9ac">a = <span id="a-val">1.000</span></span></span>
+    <span>Particles: gas <span id="n-gas">300 000</span> &nbsp; dm <span id="n-dm">250 000</span>
+      &nbsp;&nbsp;<button class="min-btn" id="min-btn" title="Hide controls (H)">— hide</button>
+    </span>
+  </div>
+
+  <div class="row-toggle">
+    <label id="gas-toggle" class="on"><input type="checkbox" id="gas-vis" checked><span class="gas-dot"></span>Gas (PartType0)</label>
+    <label id="dm-toggle"  class="on"><input type="checkbox" id="dm-vis"  checked><span class="dm-dot"></span>Dark matter (PartType1)</label>
+    <span style="display:flex;gap:6px;align-items:center;margin-left:18px;">
+      <span style="font-size:12px;color:#789">Gas mode:</span>
+      <label style="border:1px solid #345;padding:2px 9px;border-radius:4px;cursor:pointer;">
+        <input type="radio" name="gas-mode" id="gas-mode-part" checked> particles
+      </label>
+      <label style="border:1px solid #345;padding:2px 9px;border-radius:4px;cursor:pointer;">
+        <input type="radio" name="gas-mode" id="gas-mode-vol"> volume
+      </label>
+    </span>
+    <span style="display:flex;gap:6px;align-items:center;margin-left:18px;">
+      <span style="font-size:12px;color:#789">Color by:</span>
+      <select id="color-by" style="background:rgba(8,12,22,0.6); color:#cde; border:1px solid #345; border-radius:4px; padding:2px 6px; font-size:12px;">
+        <option value="0">Temperature (log T)</option>
+        <option value="1">Density (log 1+δ)</option>
+        <option value="2">Pressure (log 1+δ<sub>P</sub>)</option>
+      </select>
+    </span>
+  </div>
+
+  <div class="row-target">
+    <span class="marker-dot"></span>
+    <span>Rotation center</span>
+    <span>x</span><input id="tx" type="number" step="0.025" value="0">
+    <span>y</span><input id="ty" type="number" step="0.025" value="0">
+    <span>z</span><input id="tz" type="number" step="0.025" value="0">
+    <button id="recenter">Center (box origin)</button>
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+      <input type="checkbox" id="marker-vis" checked>marker
+    </label>
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+      <input type="checkbox" id="cbar-vis"   checked>colorbar
+    </label>
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+      <input type="checkbox" id="sbar-vis"   checked>scale bar
+    </label>
+    <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+      <input type="checkbox" id="halo-vis"   checked>halos
+    </label>
+    <span style="margin-left:auto;color:#789;font-size:11px">Shift+click in scene to refocus here</span>
+  </div>
+
+  <span class="label">Time (z)</span>
+  <input id="time" type="range" min="0" max="13" step="1" value="13">
+  <button id="play">▶ Play</button>
+
+  <span class="label">Point size</span>
+  <input id="size" type="range" min="0.5" max="8" step="0.1" value="2.0">
+  <span class="val" id="size-val">2.0</span>
+
+  <span class="label">Min brightness</span>
+  <input id="filter" type="range" min="0" max="1" step="0.01" value="0.10">
+  <span class="val" id="filter-val">0.10</span>
+
+  <span class="label">Gas brightness</span>
+  <input id="bright" type="range" min="0.05" max="2" step="0.05" value="0.35">
+  <span class="val" id="bright-val">0.35</span>
+
+  <span class="label">DM brightness</span>
+  <input id="dm-bright" type="range" min="0.05" max="2" step="0.05" value="0.25">
+  <span class="val" id="dm-bright-val">0.25</span>
+
+  <span class="label">Bloom</span>
+  <input id="bloom" type="range" min="0" max="2" step="0.05" value="0.35">
+  <span class="val" id="bloom-val">0.35</span>
+
+  <span class="label">Exposure</span>
+  <input id="expo" type="range" min="0.1" max="2" step="0.05" value="0.6">
+  <span class="val" id="expo-val">0.60</span>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.166.1/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.166.1/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+// ---- Scene ----
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.6;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x02030a);
+
+// Near plane tiny (1e-7 world unit = 0.01 kpc/h) so we can zoom all the way
+// in to ~1 kpc scale without clipping front geometry.
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1e-7, 50);
+const DEFAULT_CAM = new THREE.Vector3(1.5, -1.4, 0.7);
+camera.position.copy(DEFAULT_CAM);
+camera.lookAt(0, 0, 0);
+
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.target.set(0, 0, 0);
+controls.minDistance = 1e-6;     // unlocked: zoom down to ~kpc/h scale
+controls.maxDistance = 20;
+
+// ---- Postprocessing: bloom ----
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloomPass = new UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.35, // strength (matched to slider default)
+  0.6,  // radius
+  0.4   // threshold (only bright pixels bloom)
+);
+composer.addPass(bloomPass);
+
+// ---- Particle shaders ----
+// Common fragment shader for soft Gaussian discs with additive blending.
+const fragmentShader = /* glsl */`
+varying vec3 vColor;
+varying float vAlpha;
+uniform float brightness;
+void main() {
+  if (vAlpha < 0.5) discard;
+  vec2 uv = gl_PointCoord - vec2(0.5);
+  float r2 = dot(uv, uv);
+  if (r2 > 0.25) discard;
+  float intensity = exp(-r2 * 14.0);
+  gl_FragColor = vec4(vColor * intensity * brightness, intensity);
+}
+`;
+
+// Inline fire colormap (must match Python `fire_colormap` in
+// particles_to_gas_pointcloud.py and the colorbar CSS gradient).
+const fireCmapGLSL = /* glsl */`
+vec3 fireCmap(float t) {
+  t = clamp(t, 0.0, 1.0);
+  vec3 c0 = vec3(0.05, 0.10, 0.60);
+  vec3 c1 = vec3(0.10, 0.55, 0.95);
+  vec3 c2 = vec3(0.20, 0.85, 0.45);
+  vec3 c3 = vec3(0.95, 0.90, 0.20);
+  vec3 c4 = vec3(1.00, 0.55, 0.10);
+  vec3 c5 = vec3(0.95, 0.20, 0.10);
+  vec3 c6 = vec3(1.00, 0.95, 0.90);
+  if (t < 0.20) return mix(c0, c1, t / 0.20);
+  if (t < 0.40) return mix(c1, c2, (t - 0.20) / 0.20);
+  if (t < 0.55) return mix(c2, c3, (t - 0.40) / 0.15);
+  if (t < 0.70) return mix(c3, c4, (t - 0.55) / 0.15);
+  if (t < 0.85) return mix(c4, c5, (t - 0.70) / 0.15);
+  return mix(c5, c6, (t - 0.85) / 0.15);
+}
+`;
+
+// Gas vertex shader: 3 scalars per particle, channel selected by u_colorBy.
+const gasVertexShader = fireCmapGLSL + /* glsl */`
+attribute vec3 scalars;     // log_T_norm, log_rho_norm, log_P_norm
+uniform float pointSize;
+uniform float minFilter;
+uniform int   u_colorBy;    // 0=T, 1=rho, 2=P
+varying vec3 vColor;
+varying float vAlpha;
+void main() {
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  gl_Position = projectionMatrix * mv;
+  gl_PointSize = max(1.0, pointSize * (2.0 / -mv.z));
+  float s = (u_colorBy == 0) ? scalars.x
+          : (u_colorBy == 1) ? scalars.y
+          :                    scalars.z;
+  vColor = fireCmap(s);
+  vAlpha = step(minFilter, s);
+}
+`;
+
+// DM vertex shader: legacy xyz + rgb + filter (one-quantity rendering).
+const dmVertexShader = /* glsl */`
+attribute vec3 color;
+attribute float filterValue;
+uniform float pointSize;
+uniform float minFilter;
+varying vec3 vColor;
+varying float vAlpha;
+void main() {
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  gl_Position = projectionMatrix * mv;
+  gl_PointSize = max(1.0, pointSize * (2.0 / -mv.z));
+  vColor = color;
+  vAlpha = step(minFilter, filterValue);
+}
+`;
+
+const gasMaterial = new THREE.ShaderMaterial({
+  uniforms: {
+    pointSize:  { value: 2.0 },
+    minFilter:  { value: 0.10 },
+    brightness: { value: 0.35 },
+    u_colorBy:  { value: 0 },  // 0 = T, 1 = rho, 2 = P
+  },
+  vertexShader: gasVertexShader,
+  fragmentShader,
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+  vertexColors: false,
+});
+
+const dmMaterial = new THREE.ShaderMaterial({
+  uniforms: {
+    pointSize:  { value: 2.0 },
+    minFilter:  { value: 0.10 },
+    brightness: { value: 0.25 },
+  },
+  vertexShader: dmVertexShader,
+  fragmentShader,
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+  vertexColors: false,
+});
+
+let gasGeometry = new THREE.BufferGeometry();
+let dmGeometry  = new THREE.BufferGeometry();
+const gasPoints = new THREE.Points(gasGeometry, gasMaterial);
+const dmPoints  = new THREE.Points(dmGeometry,  dmMaterial);
+scene.add(gasPoints);
+scene.add(dmPoints);
+
+// ---- Gas volume rendering object (raymarched 3D texture) ----
+const volVS = /* glsl */`
+varying vec3 vObjPos;
+void main() {
+  vObjPos = position;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`;
+const volFS = /* glsl */`
+precision highp float;
+precision highp sampler3D;
+` + fireCmapGLSL + /* glsl */`
+uniform sampler3D u_data;
+uniform vec3 u_camObj;
+uniform float u_brightness;
+uniform float u_opacity;
+uniform float u_threshold;
+uniform int   u_steps;
+uniform int   u_renderStyle;   // 0 = bands (T, P), 1 = cmap-on-density (rho)
+varying vec3 vObjPos;
+
+void main() {
+  vec3 ray = normalize(vObjPos - u_camObj);
+  vec3 t1 = (vec3(-0.5) - u_camObj) / ray;
+  vec3 t2 = (vec3( 0.5) - u_camObj) / ray;
+  vec3 tmin = min(t1, t2);
+  vec3 tmax = max(t1, t2);
+  float t_near = max(max(tmin.x, tmin.y), tmin.z);
+  float t_far  = min(min(tmax.x, tmax.y), tmax.z);
+  t_near = max(t_near, 0.0);
+  if (t_near >= t_far) discard;
+
+  int N = u_steps;
+  float dt = (t_far - t_near) / float(N);
+  vec3 p = u_camObj + ray * t_near;
+  vec3 dp = ray * dt;
+
+  vec4 accum = vec4(0.0);
+
+  for (int i = 0; i < 256; ++i) {
+    if (i >= N) break;
+    vec3 uv = p + vec3(0.5);
+    vec4 s = texture(u_data, uv);
+    float density = s.r;
+    if (density > u_threshold) {
+      vec3 col;
+      if (u_renderStyle == 0) {
+        // T / P modes: pure hue from R/G/B band weights stored in s.gba.
+        vec3 band = s.gba;
+        float sumb = band.r + band.g + band.b + 1e-4;
+        col = band / sumb;
+      } else {
+        // density mode: cmap evaluated on R (= density itself).
+        col = fireCmap(density);
+      }
+      float d = (density - u_threshold) / max(1.0 - u_threshold, 1e-3);
+      float bright = d * d;
+      float a = clamp(bright * u_opacity * dt * 30.0, 0.0, 0.5);
+      accum.rgb += (1.0 - accum.a) * col * bright * u_brightness * a * 8.0;
+      accum.a   += (1.0 - accum.a) * a;
+      if (accum.a > 0.97) break;
+    }
+    p += dp;
+  }
+
+  if (accum.a < 0.003) discard;
+  gl_FragColor = accum;
+}
+`;
+
+const volMaterial = new THREE.ShaderMaterial({
+  uniforms: {
+    u_data:        { value: null },
+    u_camObj:      { value: new THREE.Vector3() },
+    u_brightness:  { value: 0.35 },
+    u_opacity:     { value: 0.35 },
+    u_threshold:   { value: 0.05 },
+    u_steps:       { value: 128 },
+    u_renderStyle: { value: 0 },   // 0 = bands (T or P), 1 = cmap on density
+  },
+  vertexShader: volVS,
+  fragmentShader: volFS,
+  side: THREE.BackSide,
+  transparent: true,
+  depthWrite: false,
+});
+const volMesh = new THREE.Mesh(new THREE.BoxGeometry(1, 1, 1), volMaterial);
+volMesh.visible = false;
+scene.add(volMesh);
+
+let currentVolTex = null;
+function buildVolumeTexture(uint8, res, channels) {
+  if (currentVolTex) currentVolTex.dispose();
+  const tex = new THREE.Data3DTexture(uint8, res, res, res);
+  // RGBA when channels == 4, single-channel R otherwise.
+  tex.format = (channels === 4) ? THREE.RGBAFormat : THREE.RedFormat;
+  tex.type = THREE.UnsignedByteType;
+  tex.minFilter = THREE.LinearFilter;
+  tex.magFilter = THREE.LinearFilter;
+  tex.wrapS = tex.wrapT = tex.wrapR = THREE.ClampToEdgeWrapping;
+  tex.unpackAlignment = 1;
+  tex.needsUpdate = true;
+  currentVolTex = tex;
+  volMaterial.uniforms.u_data.value = tex;
+}
+
+// Bounding box wireframe (for spatial reference, dim).
+const boxLine = new THREE.LineSegments(
+  new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)),
+  new THREE.LineBasicMaterial({ color: 0x223344, transparent: true, opacity: 0.35 })
+);
+scene.add(boxLine);
+
+// ---- Rotation-center marker (small 3D crosshair) ----
+const markerGroup = new THREE.Group();
+const MARKER_SIZE = 0.025;
+const markerMat = new THREE.LineBasicMaterial({ color: 0xffee66, transparent: true, opacity: 0.95 });
+const mkSeg = (a, b) => {
+  const g = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(...a), new THREE.Vector3(...b)]);
+  return new THREE.LineSegments(g, markerMat);
+};
+markerGroup.add(mkSeg([-MARKER_SIZE, 0, 0], [MARKER_SIZE, 0, 0]));
+markerGroup.add(mkSeg([0, -MARKER_SIZE, 0], [0, MARKER_SIZE, 0]));
+markerGroup.add(mkSeg([0, 0, -MARKER_SIZE], [0, 0, MARKER_SIZE]));
+// Small ring as well so it reads at low contrast.
+const ringGeom = new THREE.BufferGeometry();
+const N_RING = 24;
+const ringPts = [];
+for (let i = 0; i <= N_RING; i++) {
+  const a = (i / N_RING) * Math.PI * 2;
+  ringPts.push(new THREE.Vector3(Math.cos(a) * MARKER_SIZE * 0.6, Math.sin(a) * MARKER_SIZE * 0.6, 0));
+}
+ringGeom.setFromPoints(ringPts);
+markerGroup.add(new THREE.Line(ringGeom, markerMat));
+markerGroup.renderOrder = 999;
+markerMat.depthTest = false;   // draw on top so it's always visible
+scene.add(markerGroup);
+
+// ---- DM halo bulk-velocity arrows (C1) ----
+const arrowGroup = new THREE.Group();
+arrowGroup.visible = false;
+scene.add(arrowGroup);
+let arrowMeta = [];
+
+function rebuildArrows(arrows) {
+  arrowMeta = arrows || [];
+  while (arrowGroup.children.length) {
+    const c = arrowGroup.children.pop();
+    c.dispose && c.dispose();
+  }
+  for (const a of arrowMeta) {
+    const dir = new THREE.Vector3(a.vx, a.vy, a.vz);
+    const len = dir.length();
+    if (len < 1e-6) continue;
+    dir.normalize();
+    // Arrow length scales with speed_kms but clamped so it stays readable.
+    const lenWorld = 0.015 + 0.025 * Math.min(len, 1.0);
+    const arr = new THREE.ArrowHelper(
+      dir, new THREE.Vector3(a.x, a.y, a.z),
+      lenWorld, 0xffe066, lenWorld * 0.30, lenWorld * 0.20);
+    arrowGroup.add(arr);
+  }
+}
+
+// ---- Halo overlay: glowing sprite per halo ----
+// Use Sprites instead of small spheres so every halo (down to 10^11 M_sun/h)
+// stays clickable at the full-box zoom level. Sprites always face the camera
+// so the marker pixel size scales naturally with zoom.
+const haloGroup = new THREE.Group();
+scene.add(haloGroup);
+let haloMeta = [];
+
+function makeHaloTexture(size = 64) {
+  const c = document.createElement('canvas');
+  c.width = c.height = size;
+  const ctx = c.getContext('2d');
+  const r = size / 2;
+  const grad = ctx.createRadialGradient(r, r, 0, r, r, r);
+  grad.addColorStop(0.00, 'rgba(255, 245, 130, 1.00)');
+  grad.addColorStop(0.30, 'rgba(255, 230, 80,  0.85)');
+  grad.addColorStop(0.70, 'rgba(255, 200, 50,  0.25)');
+  grad.addColorStop(1.00, 'rgba(255, 180, 40,  0.00)');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, size, size);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+const haloTexture = makeHaloTexture();
+
+function rebuildHalos(halos) {
+  haloMeta = halos || [];
+  // IMPORTANT: do not dispose the (shared) sprite texture / material when
+  // shrinking the group. Just remove excess children.
+  while (haloGroup.children.length > haloMeta.length) {
+    haloGroup.children.pop();
+  }
+  for (let i = 0; i < haloMeta.length; i++) {
+    const h = haloMeta[i];
+    let m = haloGroup.children[i];
+    if (!m) {
+      const mat = new THREE.SpriteMaterial({
+        map: haloTexture, color: 0xffffff,
+        transparent: true, depthTest: false, depthWrite: false,
+      });
+      m = new THREE.Sprite(mat);
+      m.renderOrder = 998;
+      haloGroup.add(m);
+    }
+    m.position.set(h.x, h.y, h.z);
+    // Size proportional to log mass, with a generous floor so 10^11 halos
+    // are still ~6 px at the full-box view.
+    const M = Math.max(h.M_h, 1e10);
+    const f = Math.max(0, (Math.log10(M) - 11) / 4);    // 0 at 1e11, 1 at 1e15
+    const s = 0.012 + 0.024 * f;                         // 0.012 .. 0.036 world
+    m.scale.set(s, s, 1);
+    m.userData = h;
+    m.visible = true;
+  }
+}
+
+const haloPopup = document.getElementById('halo-popup');
+function formatMass(M) {
+  const TAG = {
+    cluster:    { en: "galaxy cluster",      ja: "銀河団" },
+    group:      { en: "galaxy group",        ja: "銀河群" },
+    massive:    { en: "massive galaxy halo", ja: "大規模銀河ハロー" },
+    mw:         { en: "Milky-Way-class halo", ja: "天の川銀河クラス" },
+    small:      { en: "small galaxy",        ja: "小銀河" },
+  };
+  const T = (k) => TAG[k][CURRENT_LANG] || TAG[k].en;
+  if (M >= 1e14) return `${(M / 1e14).toFixed(1)} × 10¹⁴ M☉/h  (${T('cluster')})`;
+  if (M >= 1e13) return `${(M / 1e13).toFixed(1)} × 10¹³ M☉/h  (${T('group')})`;
+  if (M >= 1e12) return `${(M / 1e12).toFixed(1)} × 10¹² M☉/h  (${T('massive')})`;
+  if (M >= 1e11) return `${(M / 1e11).toFixed(1)} × 10¹¹ M☉/h  (${T('mw')})`;
+  return `${(M / 1e10).toFixed(1)} × 10¹⁰ M☉/h  (${T('small')})`;
+}
+function showHaloPopup(h, screenX, screenY) {
+  haloPopup.style.left = `${screenX}px`;
+  haloPopup.style.top  = `${screenY}px`;
+  const lab = CURRENT_LANG === 'ja'
+    ? `<b>ハロー #${h.rank + 1}</b>  <span class="M">${formatMass(h.M_h)}</span><br>` +
+      `ガス粒子: ${h.N_gas.toLocaleString()}  ·  DM 粒子: ${h.N_dm.toLocaleString()}`
+    : `<b>Halo #${h.rank + 1}</b>  <span class="M">${formatMass(h.M_h)}</span><br>` +
+      `gas: ${h.N_gas.toLocaleString()}  ·  DM: ${h.N_dm.toLocaleString()}`;
+  haloPopup.innerHTML = lab;
+  haloPopup.classList.remove('ui-hidden');
+}
+function hideHaloPopup() { haloPopup.classList.add('ui-hidden'); }
+
+// Click on a halo sprite -> popup + refocus camera target.
+// Hover over a halo -> transient preview popup (lighter info, no refocus).
+function pickHaloAt(clientX, clientY) {
+  if (!haloGroup.visible) return null;
+  const r = canvas.getBoundingClientRect();
+  ndc.x =  ((clientX - r.left) / r.width)  * 2 - 1;
+  ndc.y = -((clientY - r.top)  / r.height) * 2 + 1;
+  raycaster.setFromCamera(ndc, camera);
+  const hits = raycaster.intersectObjects(haloGroup.children, false);
+  return hits.length ? hits[0].object.userData : null;
+}
+
+canvas.addEventListener('pointerdown', (e) => {
+  if (e.shiftKey) return;          // shift+click = refocus to arbitrary point
+  if (e.button !== 0) return;
+  const h = pickHaloAt(e.clientX, e.clientY);
+  if (!h) { hideHaloPopup(); return; }
+  showHaloPopup(h, e.clientX, e.clientY);
+  // Focus the rotation center on this halo so the user can orbit around it.
+  controls.target.set(h.x, h.y, h.z);
+  controls.update();
+  updateInputsFromTarget();
+});
+
+// Hover preview: show popup as user moves over different halos without
+// requiring a click. Suppress while a button is held (so it doesn't fight
+// with orbit drag).
+let _hoverButtons = 0;
+canvas.addEventListener('pointerdown', () => { _hoverButtons += 1; });
+canvas.addEventListener('pointerup',   () => { _hoverButtons = Math.max(0, _hoverButtons - 1); });
+canvas.addEventListener('pointermove', (e) => {
+  if (_hoverButtons) return;        // dragging -> don't interfere
+  const h = pickHaloAt(e.clientX, e.clientY);
+  if (h) {
+    showHaloPopup(h, e.clientX, e.clientY);
+    canvas.style.cursor = 'pointer';
+  } else {
+    canvas.style.cursor = 'default';
+    // Don't auto-hide here — the most recently clicked popup stays until
+    // the user clicks empty space.
+  }
+});
+
+// ---- Data loading ----
+let manifest = null;
+const cache = new Map();    // `${kind}:${frame}` -> {positions, colors, filterValues, n}
+
+async function loadManifest() {
+  const r = await fetch('threejs_data/manifest.json');
+  manifest = await r.json();
+}
+
+function unpackGasBuffer(buf, n) {
+  // Gas bin: 6 floats per particle (xyz + log_T_norm + log_rho_norm + log_P_norm).
+  const positions = new Float32Array(n * 3);
+  const scalars   = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    positions[i * 3 + 0] = buf[i * 6 + 0];
+    positions[i * 3 + 1] = buf[i * 6 + 1];
+    positions[i * 3 + 2] = buf[i * 6 + 2];
+    scalars[i * 3 + 0]   = buf[i * 6 + 3];
+    scalars[i * 3 + 1]   = buf[i * 6 + 4];
+    scalars[i * 3 + 2]   = buf[i * 6 + 5];
+  }
+  return { positions, scalars, n };
+}
+
+function unpackDmBuffer(buf, n) {
+  // DM bin: 7 floats per particle (xyz + rgb + filter).
+  const positions = new Float32Array(n * 3);
+  const colors    = new Float32Array(n * 3);
+  const filterValues = new Float32Array(n);
+  for (let i = 0; i < n; i++) {
+    positions[i * 3 + 0] = buf[i * 7 + 0];
+    positions[i * 3 + 1] = buf[i * 7 + 1];
+    positions[i * 3 + 2] = buf[i * 7 + 2];
+    colors[i * 3 + 0]    = buf[i * 7 + 3];
+    colors[i * 3 + 1]    = buf[i * 7 + 4];
+    colors[i * 3 + 2]    = buf[i * 7 + 5];
+    filterValues[i]      = buf[i * 7 + 6];
+  }
+  return { positions, colors, filterValues, n };
+}
+
+async function loadOne(frame, kind /* 'gas' | 'dm' */) {
+  const key = `${kind}:${frame}`;
+  if (cache.has(key)) return cache.get(key);
+  const meta = manifest.snapshots.find(s => s.frame === frame);
+  if (!meta) return null;
+  const file = kind === 'gas' ? meta.gas_file : meta.dm_file;
+  const n    = kind === 'gas' ? meta.gas_n    : meta.dm_n;
+  if (!file) return null;
+  const resp = await fetch('threejs_data/' + file);
+  const buf = new Float32Array(await resp.arrayBuffer());
+  const obj = (kind === 'gas') ? unpackGasBuffer(buf, n) : unpackDmBuffer(buf, n);
+  cache.set(key, obj);
+  return obj;
+}
+
+function getActiveVolKind() {
+  // Map the Color by selector index to one of our per-quantity volume bins.
+  // 0 = T (bands), 1 = rho (cmap on density), 2 = P (bands).
+  const idx = parseInt(colorBySelect.value);
+  return (idx === 0) ? 'T' : (idx === 1) ? 'rho' : 'P';
+}
+
+async function loadVolume(frame, kind) {
+  kind = kind || getActiveVolKind();
+  const key = `vol_${kind}:${frame}`;
+  if (cache.has(key)) return cache.get(key);
+  const meta = manifest.snapshots.find(s => s.frame === frame);
+  if (!meta) return null;
+  const file = meta[`vol_${kind}_file`];
+  const channels = meta[`vol_${kind}_channels`] || 4;
+  if (!file) return null;
+  const resp = await fetch('threejs_data/' + file);
+  const buf = new Uint8Array(await resp.arrayBuffer());
+  const res = meta.vol_res || Math.round(Math.cbrt(buf.length / channels));
+  const obj = { data: buf, res, channels, kind };
+  cache.set(key, obj);
+  return obj;
+}
+
+async function loadSnapshot(frame) {
+  const tasks = [loadOne(frame, 'gas'), loadOne(frame, 'dm')];
+  if (volMesh.visible || gasModeIsVolume()) tasks.push(loadVolume(frame));
+  const [gas, dm, vol] = await Promise.all(tasks);
+  const meta = manifest.snapshots.find(s => s.frame === frame);
+  return { gas, dm, vol, meta };
+}
+
+function gasModeIsVolume() {
+  return document.getElementById('gas-mode-vol').checked;
+}
+
+function applyToPoints(data, geomRef, pointsObj) {
+  if (!data) return geomRef;
+  geomRef.dispose();
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(data.positions, 3));
+  if (data.scalars) {
+    g.setAttribute('scalars', new THREE.BufferAttribute(data.scalars, 3));
+  }
+  if (data.colors) {
+    g.setAttribute('color',       new THREE.BufferAttribute(data.colors,       3));
+    g.setAttribute('filterValue', new THREE.BufferAttribute(data.filterValues, 1));
+  }
+  pointsObj.geometry = g;
+  return g;
+}
+
+function applySnapshot(snap) {
+  if (snap.gas) gasGeometry = applyToPoints(snap.gas, gasGeometry, gasPoints);
+  if (snap.dm)  dmGeometry  = applyToPoints(snap.dm,  dmGeometry,  dmPoints);
+  if (snap.vol) {
+    buildVolumeTexture(snap.vol.data, snap.vol.res, snap.vol.channels);
+    // Tell the shader which render path to use: bands (T or P) or cmap (rho).
+    volMaterial.uniforms.u_renderStyle.value = (snap.vol.kind === 'rho') ? 1 : 0;
+  }
+
+  // Refresh halo overlay + velocity arrows for the new snapshot.
+  rebuildHalos(snap.meta.halos || []);
+  rebuildArrows(snap.meta.halo_vel || []);
+  hideHaloPopup();
+
+  const z = snap.meta.redshift;
+  const a = snap.meta.scale_factor;
+  const idx = (snap.meta.frame + 1).toString();
+  document.getElementById('z-val').textContent = z.toFixed(2);
+  document.getElementById('a-val').textContent = a.toFixed(3);
+  document.getElementById('snap-idx').textContent = idx;
+  document.getElementById('z-big').textContent   = z.toFixed(2);
+  // Cosmic age / lookback subtitle under the z banner.
+  const t_age = snap.meta.age_at_z_gyr;
+  const t_lookback = snap.meta.lookback_gyr;
+  const lookbackTxt = t_lookback < 0.05 ? "today"
+                    : t_lookback < 1.0  ? `${(t_lookback*1000).toFixed(0)} Myr ago`
+                                        : `${t_lookback.toFixed(2)} Gyr ago`;
+  const ageTxt = t_age < 0.1 ? `${(t_age*1000).toFixed(0)} Myr after Big Bang`
+                             : `universe age ${t_age.toFixed(2)} Gyr`;
+  document.getElementById('z-banner-sub').textContent =
+    `${ageTxt}  •  ${lookbackTxt}`;
+  document.getElementById('n-gas').textContent = (snap.meta.gas_n || 0).toLocaleString();
+  document.getElementById('n-dm').textContent  = (snap.meta.dm_n  || 0).toLocaleString();
+}
+
+// ---- UI ----
+const timeSlider   = document.getElementById('time');
+const sizeSlider   = document.getElementById('size');
+const filterSlider = document.getElementById('filter');
+const bloomSlider  = document.getElementById('bloom');
+const playBtn      = document.getElementById('play');
+
+const brightSlider   = document.getElementById('bright');
+const dmBrightSlider = document.getElementById('dm-bright');
+const expoSlider     = document.getElementById('expo');
+const gasVis         = document.getElementById('gas-vis');
+const dmVis          = document.getElementById('dm-vis');
+const gasToggleLabel = document.getElementById('gas-toggle');
+const dmToggleLabel  = document.getElementById('dm-toggle');
+
+timeSlider.addEventListener('input', async () => {
+  const frame = parseInt(timeSlider.value);
+  const snap = await loadSnapshot(frame);
+  if (snap) applySnapshot(snap);
+});
+sizeSlider.addEventListener('input', () => {
+  const v = parseFloat(sizeSlider.value);
+  gasMaterial.uniforms.pointSize.value = v;
+  dmMaterial.uniforms.pointSize.value  = v;
+  document.getElementById('size-val').textContent = v.toFixed(1);
+});
+filterSlider.addEventListener('input', () => {
+  const v = parseFloat(filterSlider.value);
+  gasMaterial.uniforms.minFilter.value = v;
+  dmMaterial.uniforms.minFilter.value  = v;
+  document.getElementById('filter-val').textContent = v.toFixed(2);
+});
+brightSlider.addEventListener('input', () => {
+  const v = parseFloat(brightSlider.value);
+  gasMaterial.uniforms.brightness.value = v;
+  volMaterial.uniforms.u_brightness.value = v;
+  volMaterial.uniforms.u_opacity.value    = v;
+  document.getElementById('bright-val').textContent = v.toFixed(2);
+});
+dmBrightSlider.addEventListener('input', () => {
+  const v = parseFloat(dmBrightSlider.value);
+  dmMaterial.uniforms.brightness.value = v;
+  document.getElementById('dm-bright-val').textContent = v.toFixed(2);
+});
+bloomSlider.addEventListener('input', () => {
+  const v = parseFloat(bloomSlider.value);
+  bloomPass.strength = v;
+  document.getElementById('bloom-val').textContent = v.toFixed(2);
+});
+expoSlider.addEventListener('input', () => {
+  const v = parseFloat(expoSlider.value);
+  renderer.toneMappingExposure = v;
+  document.getElementById('expo-val').textContent = v.toFixed(2);
+});
+
+const gasModePart = document.getElementById('gas-mode-part');
+const gasModeVol  = document.getElementById('gas-mode-vol');
+
+function syncToggles() {
+  const useVol = gasModeIsVolume();
+  gasPoints.visible = gasVis.checked && !useVol;
+  volMesh.visible   = gasVis.checked &&  useVol;
+  dmPoints.visible  = dmVis.checked;
+  gasToggleLabel.classList.toggle('on', gasVis.checked);
+  dmToggleLabel.classList.toggle('on',  dmVis.checked);
+}
+gasVis.addEventListener('change', syncToggles);
+dmVis.addEventListener('change',  syncToggles);
+
+// ---- Rotation center UI <-> OrbitControls.target ----
+const txInput = document.getElementById('tx');
+const tyInput = document.getElementById('ty');
+const tzInput = document.getElementById('tz');
+const markerVis = document.getElementById('marker-vis');
+let _suppressTargetEcho = false;  // avoid feedback loop input -> target -> input
+
+function setTargetFromInputs() {
+  if (_suppressTargetEcho) return;
+  const x = parseFloat(txInput.value) || 0;
+  const y = parseFloat(tyInput.value) || 0;
+  const z = parseFloat(tzInput.value) || 0;
+  controls.target.set(x, y, z);
+  markerGroup.position.set(x, y, z);
+  controls.update();
+}
+function updateInputsFromTarget() {
+  _suppressTargetEcho = true;
+  txInput.value = controls.target.x.toFixed(3);
+  tyInput.value = controls.target.y.toFixed(3);
+  tzInput.value = controls.target.z.toFixed(3);
+  _suppressTargetEcho = false;
+  markerGroup.position.copy(controls.target);
+}
+
+[txInput, tyInput, tzInput].forEach(inp => inp.addEventListener('input', setTargetFromInputs));
+controls.addEventListener('change', () => {
+  updateInputsFromTarget();
+  hideHaloPopup();
+});
+
+document.getElementById('recenter').addEventListener('click', () => {
+  controls.target.set(0, 0, 0);
+  controls.update();
+  updateInputsFromTarget();
+});
+
+markerVis.addEventListener('change', () => {
+  markerGroup.visible = markerVis.checked;
+});
+
+const haloVis = document.getElementById('halo-vis');
+haloVis.addEventListener('change', () => {
+  haloGroup.visible = haloVis.checked;
+  if (!haloVis.checked) hideHaloPopup();
+});
+
+// ---- Color-by selector (gas particles) ----
+const colorBySelect = document.getElementById('color-by');
+const cbarTicks = document.getElementById('cbar-ticks');
+const cbarTitle = document.getElementById('cbar-title');
+
+const COLOR_BY_LABELS = {
+  0: { title: "Gas T",
+       ticks: ["10<sup>7.5</sup> K", "10<sup>6.6</sup>", "10<sup>5.75</sup>", "10<sup>4.9</sup>", "10<sup>4</sup> K"],
+       caption: "Red = X-ray-hot halo gas<br>Blue = cool intergalactic gas" },
+  1: { title: "Gas log(1 + δ<sub>ρ</sub>)",
+       ticks: ["5", "4", "3", "2", "0"],
+       caption: "Red = dense galaxy / halo cores<br>Blue = cosmic voids" },
+  2: { title: "Gas log(1 + δ<sub>P</sub>)",
+       ticks: ["6", "4.5", "3", "1.5", "0"],
+       caption: "Red = high-pressure cluster cores<br>Blue = low-pressure voids" },
+};
+
+function applyColorBy(idx) {
+  gasMaterial.uniforms.u_colorBy.value = idx;
+  const L = COLOR_BY_LABELS[idx];
+  cbarTitle.innerHTML = L.title;
+  cbarTicks.innerHTML = L.ticks.map(t => `<span>${t}</span>`).join('');
+  const cap = document.getElementById('cbar-caption');
+  if (cap) cap.innerHTML = L.caption;
+}
+colorBySelect.addEventListener('change', async () => {
+  applyColorBy(parseInt(colorBySelect.value));
+  // If volume mode is active, swap the loaded volume binary for the matching kind.
+  if (gasModeIsVolume()) {
+    const f = parseInt(timeSlider.value);
+    const v = await loadVolume(f);
+    if (v) {
+      buildVolumeTexture(v.data, v.res, v.channels);
+      volMaterial.uniforms.u_renderStyle.value = (v.kind === 'rho') ? 1 : 0;
+    }
+  }
+});
+
+// ---- Colorbar / scale bar visibility ----
+const cbarEl = document.getElementById('colorbar');
+const sbarEl = document.getElementById('scalebar');
+const cbarVis = document.getElementById('cbar-vis');
+const sbarVis = document.getElementById('sbar-vis');
+cbarVis.addEventListener('change', () => cbarEl.classList.toggle('ui-hidden', !cbarVis.checked));
+sbarVis.addEventListener('change', () => sbarEl.classList.toggle('ui-hidden', !sbarVis.checked));
+
+// ---- Dynamic scale bar (length scale at current zoom) ----
+// Box is 1 world unit = 100 Mpc/h = 100 000 kpc/h. Compute physical size of
+// 1 pixel from camera distance + vertical FOV, then pick a "nice" round value
+// in kpc/h (kpc shown for <=500 kpc/h, otherwise Mpc/h).
+const NICE_KPC = [1, 2, 5, 10, 20, 50, 100, 200, 500,
+                   1000, 2000, 5000, 10000, 20000, 50000, 100000];
+const KPC_PER_BOX = 100000;   // 100 Mpc/h
+const sbarBar = document.getElementById('scalebar-bar');
+const sbarLbl = document.getElementById('scalebar-label');
+const sbarCap = document.getElementById('scalebar-caption');
+
+// Map scale-bar value (kpc/h) to a relatable astrophysical scale comparison.
+const SCALE_COMPARISONS = [
+  { max:      1, text: "≈ size of a globular cluster"            },
+  { max:      5, text: "≈ Milky Way bulge radius"                },
+  { max:     20, text: "≈ Milky Way disk radius"                 },
+  { max:     50, text: "≈ Milky Way diameter"                    },
+  { max:    200, text: "≈ Milky Way virial radius"               },
+  { max:    500, text: "≈ extent of the galactic halo"           },
+  { max:   1000, text: "≈ Milky Way → Andromeda half-distance"   },
+  { max:   2000, text: "≈ Local Group scale"                     },
+  { max:   5000, text: "≈ small galaxy group"                    },
+  { max:  10000, text: "≈ Virgo galaxy cluster radius"           },
+  { max:  30000, text: "≈ distance between galaxy clusters"      },
+  { max:  60000, text: "≈ size of a typical supercluster"        },
+  { max: 200000, text: "≈ the largest cosmic structures known"   },
+];
+function scaleComparison(kpc_h) {
+  for (const c of SCALE_COMPARISONS) if (kpc_h <= c.max) return c.text;
+  return SCALE_COMPARISONS[SCALE_COMPARISONS.length - 1].text;
+}
+
+function updateScaleBar() {
+  if (sbarEl.classList.contains('ui-hidden')) return;
+  const d = camera.position.distanceTo(controls.target);
+  const fovV = camera.fov * Math.PI / 180;
+  const worldPerPx = (2 * d * Math.tan(fovV / 2)) / renderer.domElement.clientHeight;
+  const targetPx = 180;
+  const kpcAt180 = targetPx * worldPerPx * KPC_PER_BOX;
+  let chosen = NICE_KPC[0];
+  for (const v of NICE_KPC) { if (v <= kpcAt180) chosen = v; else break; }
+  const barPx = (chosen / KPC_PER_BOX) / worldPerPx;
+  sbarBar.style.width = `${barPx.toFixed(1)}px`;
+  if (chosen <= 500) {
+    sbarLbl.innerHTML = `${chosen} kpc/<i>h</i>`;
+  } else {
+    const mpc = chosen / 1000;
+    sbarLbl.innerHTML = `${Number.isInteger(mpc) ? mpc : mpc.toFixed(1)} Mpc/<i>h</i>`;
+  }
+  sbarCap.textContent = scaleComparison(chosen);
+}
+
+// ---- Shift+click to refocus rotation center ----
+// We intersect the ray with the (unit) bounding box and place the target a
+// fraction of the way through, so even on an "empty" pixel the camera still
+// pivots somewhere inside the volume.
+const raycaster = new THREE.Raycaster();
+const ndc = new THREE.Vector2();
+const boxIsect = new THREE.Box3(new THREE.Vector3(-0.5, -0.5, -0.5), new THREE.Vector3(0.5, 0.5, 0.5));
+
+canvas.addEventListener('pointerdown', (e) => {
+  if (!e.shiftKey || e.button !== 0) return;
+  const r = canvas.getBoundingClientRect();
+  ndc.x = ((e.clientX - r.left) / r.width)  * 2 - 1;
+  ndc.y = -((e.clientY - r.top)  / r.height) * 2 + 1;
+  raycaster.setFromCamera(ndc, camera);
+  const hit = raycaster.ray.intersectBox(boxIsect, new THREE.Vector3());
+  if (!hit) return;
+  // Move along the ray to about 40% into the box for a useful pivot point.
+  const exit = new THREE.Vector3();
+  // Find ray exit by stepping until we leave the box.
+  const enter = hit.clone();
+  // Approximate exit: start from enter, walk along ray direction until outside.
+  // (Simpler: use parametric form.)
+  const dir = raycaster.ray.direction;
+  let tFar = 0;
+  const inv = new THREE.Vector3(1.0 / dir.x, 1.0 / dir.y, 1.0 / dir.z);
+  const origin = raycaster.ray.origin;
+  const t1 = new THREE.Vector3(
+    (-0.5 - origin.x) * inv.x, (-0.5 - origin.y) * inv.y, (-0.5 - origin.z) * inv.z);
+  const t2 = new THREE.Vector3(
+    ( 0.5 - origin.x) * inv.x, ( 0.5 - origin.y) * inv.y, ( 0.5 - origin.z) * inv.z);
+  const tmax = new THREE.Vector3(Math.max(t1.x, t2.x), Math.max(t1.y, t2.y), Math.max(t1.z, t2.z));
+  const tmin = new THREE.Vector3(Math.min(t1.x, t2.x), Math.min(t1.y, t2.y), Math.min(t1.z, t2.z));
+  const tFarVal = Math.min(tmax.x, tmax.y, tmax.z);
+  const tNearVal = Math.max(0, Math.max(tmin.x, tmin.y, tmin.z));
+  const tMid = tNearVal + (tFarVal - tNearVal) * 0.4;
+  const newTarget = origin.clone().add(dir.clone().multiplyScalar(tMid));
+  controls.target.copy(newTarget);
+  controls.update();
+  updateInputsFromTarget();
+});
+
+async function onGasModeChange() {
+  syncToggles();
+  if (gasModeIsVolume()) {
+    const f = parseInt(timeSlider.value);
+    const v = await loadVolume(f);
+    if (v) {
+      buildVolumeTexture(v.data, v.res, v.channels);
+      volMaterial.uniforms.u_renderStyle.value = (v.kind === 'rho') ? 1 : 0;
+    }
+  }
+}
+gasModePart.addEventListener('change', onGasModeChange);
+gasModeVol .addEventListener('change', onGasModeChange);
+
+let playing = false; let playTimer = null;
+playBtn.addEventListener('click', () => {
+  playing = !playing;
+  playBtn.textContent = playing ? '⏸ Pause' : '▶ Play';
+  if (playing) {
+    playTimer = setInterval(async () => {
+      let f = (parseInt(timeSlider.value) + 1) % 14;
+      timeSlider.value = f;
+      const snap = await loadSnapshot(f);
+      if (snap) applySnapshot(snap);
+    }, 800);
+  } else {
+    clearInterval(playTimer);
+  }
+});
+
+// ---- Hide / show all overlays ----
+const panelEl   = document.getElementById('panel');
+const helpEl    = document.getElementById('help');
+const showUiBtn = document.getElementById('show-ui-btn');
+
+function setUIVisible(visible) {
+  panelEl.classList.toggle('ui-hidden', !visible);
+  helpEl.classList.toggle('ui-hidden', !visible);
+  showUiBtn.style.display = visible ? 'none' : 'block';
+  // Note: colorbar + scalebar visibility is now independent of the
+  // panel/help. Use the legend toggle button (L) or the per-element
+  // checkboxes inside the panel.
+}
+
+// ---- Legend (colorbar + scalebar) toggle ----
+const toggleLegendBtn = document.getElementById('toggle-legend-btn');
+function setLegendsVisible(visible) {
+  cbarVis.checked = visible;
+  sbarVis.checked = visible;
+  cbarVis.dispatchEvent(new Event('change'));
+  sbarVis.dispatchEvent(new Event('change'));
+  toggleLegendBtn.textContent = visible ? '☷ Hide legends' : '☷ Show legends';
+}
+toggleLegendBtn.addEventListener('click', () => {
+  const anyVisible = cbarVis.checked || sbarVis.checked;
+  setLegendsVisible(!anyVisible);
+});
+document.getElementById('min-btn').addEventListener('click', () => setUIVisible(false));
+showUiBtn.addEventListener('click', () => setUIVisible(true));
+
+document.addEventListener('keydown', (e) => {
+  if (e.target && e.target.tagName === 'INPUT') return;
+  if (e.key === 'r' || e.key === 'R') {
+    camera.position.copy(DEFAULT_CAM);
+    controls.target.set(0, 0, 0);
+    controls.update();
+    updateInputsFromTarget();
+  }
+  if (e.key === 'h' || e.key === 'H') {
+    setUIVisible(panelEl.classList.contains('ui-hidden'));  // toggle
+  }
+  if (e.key === 'l' || e.key === 'L') {
+    const anyVisible = cbarVis.checked || sbarVis.checked;
+    setLegendsVisible(!anyVisible);
+  }
+  if (e.code === 'Space') {
+    e.preventDefault();
+    playBtn.click();
+  }
+});
+
+// ---- Resize ----
+window.addEventListener('resize', () => {
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+});
+
+// ---- Animation loop ----
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  volMaterial.uniforms.u_camObj.value.copy(camera.position);
+  updateScaleBar();
+  composer.render();
+}
+
+// ---- Intro card modal (first-visit narrative) ----
+const introOverlay = document.getElementById('intro-overlay');
+const introTitle   = document.getElementById('intro-title');
+const introSub     = document.getElementById('intro-sub');
+const introBody    = document.getElementById('intro-body');
+const introClose   = document.getElementById('intro-close');
+const introSkip    = document.getElementById('intro-skip');
+
+const INTRO_CONTENT = {
+  en: {
+    title: "Cosmological Hydrodynamics — Interactive",
+    sub:   "13.8 billion years of cosmic structure formation in your browser",
+    body: `
+      <p>You are looking at a simulated 100 Mpc/h cube of the universe, evolved
+      from 50 Myr after the Big Bang to today (z = 49 → 0, 14 snapshots).</p>
+      <p><b>Gas particles</b> are colored by physical state — blue: cool intergalactic
+      gas (~10<sup>4</sup> K), red/white: X-ray-hot halo gas (~10<sup>7</sup> K).
+      <b>Dark matter</b> traces the gravitational scaffolding underneath.</p>
+      <p style="color:#aac;font-size:13px">
+        <span class="key">drag</span> rotate · <span class="key">wheel</span> zoom ·
+        <span class="key">shift+click</span> refocus ·
+        <span class="key">H</span> hide UI · <span class="key">L</span> hide legends ·
+        <span class="key">R</span> reset · <span class="key">space</span> play
+      </p>`,
+    skip: "don't show again",
+    close: "Start exploring →",
+  },
+  ja: {
+    title: "宇宙論的流体シミュレーション ― インタラクティブビューア",
+    sub:   "138 億年の宇宙構造形成をブラウザで体感",
+    body: `
+      <p>100 Mpc/h の宇宙ボックスを、ビッグバン後 50 Myr から現在まで(z=49→0、
+      14 スナップショット)シミュレーションしたものを表示しています。</p>
+      <p><b>ガス粒子</b>は物理状態で色分け:青=冷たい銀河間ガス(~10<sup>4</sup> K)、
+      赤/白=X 線で輝く高温ハローガス(~10<sup>7</sup> K)。
+      <b>ダークマター</b>は重力の骨格を示します。</p>
+      <p style="color:#aac;font-size:13px">
+        <span class="key">ドラッグ</span>回転 · <span class="key">ホイール</span>ズーム ·
+        <span class="key">Shift+クリック</span>注視点 ·
+        <span class="key">H</span> UI · <span class="key">L</span> 凡例 ·
+        <span class="key">R</span> リセット · <span class="key">スペース</span>再生
+      </p>`,
+    skip: "次回から表示しない",
+    close: "探索を開始 →",
+  },
+};
+function setIntroLang(lang) {
+  const c = INTRO_CONTENT[lang] || INTRO_CONTENT.en;
+  introTitle.textContent = c.title;
+  introSub.textContent = c.sub;
+  introBody.innerHTML = c.body;
+  introClose.textContent = c.close;
+  introOverlay.querySelector('label').lastChild.textContent = " " + c.skip;
+  document.querySelectorAll('.lang-select').forEach(b => {
+    b.classList.toggle('active', b.dataset.lang === lang);
+  });
+  localStorage.setItem('cosmoweb_lang', lang);
+}
+document.querySelectorAll('.lang-select').forEach(b => {
+  b.addEventListener('click', () => setIntroLang(b.dataset.lang));
+});
+introClose.addEventListener('click', () => {
+  if (introSkip.checked) localStorage.setItem('cosmoweb_intro_skip', '1');
+  introOverlay.classList.add('ui-hidden');
+});
+setIntroLang(localStorage.getItem('cosmoweb_lang') || 'en');
+if (localStorage.getItem('cosmoweb_intro_skip') !== '1') {
+  introOverlay.classList.remove('ui-hidden');
+}
+
+// ===== B: outreach features =====
+
+// B4: simple lang switcher that retargets a small set of frequently-seen strings.
+const LANG_STRINGS = {
+  preset_full:  { en: "⛶ Full box",       ja: "⛶ 全体表示" },
+  preset_halo:  { en: "★ Top halo",       ja: "★ 最大ハロー" },
+  preset_void:  { en: "○ Void",           ja: "○ ボイド" },
+  tour_play:    { en: "▶ Tour",           ja: "▶ ツアー再生" },
+  tour_pause:   { en: "‖ Pause",          ja: "‖ 一時停止" },
+  tour_resume:  { en: "▶ Resume",         ja: "▶ 再開" },
+  tour_stop:    { en: "■ Stop",           ja: "■ 停止" },
+  compare_on:   { en: "⇄ Compare gas/DM", ja: "⇄ ガス vs DM" },
+  compare_off:  { en: "⇄ Stop compare",   ja: "⇄ 比較停止" },
+  lang_lbl:     { en: "lang:",            ja: "言語:" },
+  color_by:     { en: "Color by:",        ja: "色:" },
+  gas_mode:     { en: "Gas mode:",        ja: "ガス表示:" },
+};
+let CURRENT_LANG = localStorage.getItem('cosmoweb_lang') || 'en';
+function L(key) {
+  const s = LANG_STRINGS[key];
+  return s ? (s[CURRENT_LANG] || s.en) : key;
+}
+function refreshLangStrings() {
+  document.getElementById('preset-full').textContent = L('preset_full');
+  document.getElementById('preset-halo').textContent = L('preset_halo');
+  document.getElementById('preset-void').textContent = L('preset_void');
+  const tb = document.getElementById('tour-btn');
+  tb.textContent = (tourState === 'playing') ? L('tour_pause')
+                 : (tourState === 'paused')  ? L('tour_resume')
+                 :                              L('tour_play');
+  document.getElementById('tour-stop-btn').textContent = L('tour_stop');
+  const cb = document.getElementById('compare-btn');
+  cb.textContent = compareActive ? L('compare_off') : L('compare_on');
+}
+const langSelect = document.getElementById('lang-select');
+langSelect.value = CURRENT_LANG;
+langSelect.addEventListener('change', () => {
+  CURRENT_LANG = langSelect.value;
+  localStorage.setItem('cosmoweb_lang', CURRENT_LANG);
+  refreshLangStrings();
+});
+
+// B2: camera presets
+function setCamera(distance, height, angleDeg, target) {
+  const ang = angleDeg * Math.PI / 180;
+  camera.position.set(distance * Math.sin(ang), -distance * Math.cos(ang), height);
+  if (target) controls.target.set(target[0], target[1], target[2]);
+  controls.update();
+  updateInputsFromTarget();
+}
+document.getElementById('preset-full').addEventListener('click', () => {
+  setCamera(1.55, 0.7, 0, [0, 0, 0]);
+});
+document.getElementById('preset-halo').addEventListener('click', () => {
+  const halos = (manifest.snapshots.find(s => s.frame === parseInt(timeSlider.value))?.halos) || [];
+  if (halos.length === 0) return;
+  const h = halos[0];
+  setCamera(0.25, 0.05, 30, [h.x, h.y, h.z]);
+  showHaloPopup(h, window.innerWidth / 2, window.innerHeight / 2 - 100);
+});
+document.getElementById('preset-void').addEventListener('click', () => {
+  // Find a low-density region: pick the halo position furthest from all halos.
+  // Cheap proxy: just pick (0.3, 0.3, 0.3) which is usually void-y in this box.
+  setCamera(0.4, 0.1, 0, [0.30, 0.30, 0.30]);
+});
+
+// B3: gas / DM compare (alternates every 600 ms)
+let compareActive = false;
+let compareTimer = null;
+let compareGasNext = true;
+document.getElementById('compare-btn').addEventListener('click', () => {
+  compareActive = !compareActive;
+  if (compareActive) {
+    compareTimer = setInterval(() => {
+      compareGasNext = !compareGasNext;
+      gasVis.checked = compareGasNext;
+      dmVis.checked = !compareGasNext;
+      syncToggles();
+    }, 600);
+  } else {
+    clearInterval(compareTimer);
+    gasVis.checked = true;
+    dmVis.checked = true;
+    syncToggles();
+  }
+  refreshLangStrings();
+});
+
+// B1: guided tour. Predefined waypoints with caption + camera + frame + colorBy.
+const TOUR = [
+  { frame: 0,  dist: 1.55, ang: 0,  target: [0,0,0],         colorBy: 0,
+    capt: { en: "Universe age ~50 Myr. Gas is almost uniform.",
+            ja: "宇宙年齢 ~50 Myr。ガスはほぼ一様。" }, dwell: 3500 },
+  { frame: 3,  dist: 1.55, ang: 5,  target: [0,0,0],         colorBy: 0,
+    capt: { en: "After 1 Gyr: tiny density ripples start to grow.",
+            ja: "宇宙年齢 1 Gyr。微小な密度ゆらぎが成長を始める。" }, dwell: 3500 },
+  { frame: 6,  dist: 1.55, ang: 12, target: [0,0,0],         colorBy: 0,
+    capt: { en: "~3 Gyr: the cosmic web is forming.",
+            ja: "~3 Gyr。宇宙の大規模構造(cosmic web)が形成中。" }, dwell: 4000 },
+  { frame: 9,  dist: 1.55, ang: 20, target: [0,0,0],         colorBy: 0,
+    capt: { en: "~7.5 Gyr: first galaxy clusters glow X-ray hot.",
+            ja: "~7.5 Gyr。最初の銀河団が X 線で輝き始める。" }, dwell: 4000 },
+  { frame: 13, dist: 1.55, ang: 25, target: [0,0,0],         colorBy: 0,
+    capt: { en: "Today (z=0). The mature cosmic web — galaxies, filaments, voids.",
+            ja: "現在 (z=0)。成熟した cosmic web、銀河・フィラメント・ボイド。" }, dwell: 4500 },
+  { frame: 13, dist: 0.25, ang: 30, target: null,            colorBy: 0, /* fill in */
+    capt: { en: "Zooming into the largest galaxy cluster (10^14 M⊙).",
+            ja: "最大の銀河団へズームイン (10¹⁴ M⊙)。" }, dwell: 5000 },
+  { frame: 13, dist: 1.55, ang: 25, target: [0,0,0],         colorBy: 1,
+    capt: { en: "Same box, colored by density.",
+            ja: "同じボックス、密度で色分け。" }, dwell: 4000 },
+  { frame: 13, dist: 1.55, ang: 25, target: [0,0,0],         colorBy: 2,
+    capt: { en: "And by pressure -- cluster cores stand out.",
+            ja: "圧力で色分け — 銀河団中心が際立つ。" }, dwell: 4000 },
+];
+let tourState = 'idle';       // 'idle' | 'playing' | 'paused'
+let tourTimer = null;
+let tourIndex = 0;
+let tourStepStart = 0;        // ms timestamp when current step entered playing
+let tourRemaining = 0;        // ms remaining at the moment of pause
+const tourCaption = document.getElementById('tour-caption');
+const tourBtn     = document.getElementById('tour-btn');
+const tourStopBtn = document.getElementById('tour-stop-btn');
+
+// Reset the entire viewer state to defaults so the tour starts from a known
+// baseline regardless of what the user has been clicking.
+function resetViewer() {
+  // Camera + rotation center
+  camera.position.copy(DEFAULT_CAM);
+  controls.target.set(0, 0, 0);
+  controls.autoRotate = false;
+  controls.update();
+  updateInputsFromTarget();
+  rotateBtn.style.background = 'rgba(20,30,50,0.5)';
+  // Color quantity
+  colorBySelect.value = '0';
+  applyColorBy(0);
+  // Gas + DM both on, gas-mode = particles
+  gasVis.checked = true;
+  dmVis.checked = true;
+  gasModePart.checked = true;
+  syncToggles();
+  // Sliders back to defaults
+  const setSlider = (el, v) => {
+    el.value = v;
+    el.dispatchEvent(new Event('input'));
+  };
+  setSlider(sizeSlider, '2.0');
+  setSlider(filterSlider, '0.10');
+  setSlider(brightSlider, '0.35');
+  setSlider(dmBrightSlider, '0.25');
+  setSlider(bloomSlider, '0.35');
+  setSlider(expoSlider, '0.6');
+  // Visibility checkboxes
+  for (const [el, group] of [[markerVis, markerGroup], [haloVis, haloGroup]]) {
+    el.checked = true; group.visible = true;
+  }
+  // Legends back
+  cbarVis.checked = true; sbarVis.checked = true;
+  cbarEl.classList.remove('ui-hidden');
+  sbarEl.classList.remove('ui-hidden');
+  toggleLegendBtn.textContent = '☷ Hide legends';
+  // Stop compare mode if running
+  if (compareActive) {
+    compareActive = false;
+    clearInterval(compareTimer);
+  }
+  // Hide arrows
+  arrowGroup.visible = false;
+  arrowsBtn.style.background = 'rgba(20,30,50,0.5)';
+  // Hide halo popup
+  hideHaloPopup();
+}
+
+async function showWaypoint(i) {
+  if (tourState === 'idle') return;
+  const wp = TOUR[i];
+  tourIndex = i;
+
+  // Resolve "largest halo" target for waypoints with target === null.
+  let target = wp.target;
+  if (target === null) {
+    const halos = (manifest.snapshots.find(s => s.frame === wp.frame)?.halos) || [];
+    target = (halos.length > 0) ? [halos[0].x, halos[0].y, halos[0].z] : [0, 0, 0];
+  }
+
+  // Switch snapshot
+  timeSlider.value = wp.frame;
+  const snap = await loadSnapshot(wp.frame);
+  if (snap) applySnapshot(snap);
+
+  // Switch color
+  colorBySelect.value = wp.colorBy;
+  applyColorBy(wp.colorBy);
+  if (gasModeIsVolume()) onGasModeChange();
+
+  // Move camera
+  setCamera(wp.dist, 0.7 * wp.dist / 1.55, wp.ang, target);
+
+  // Caption
+  tourCaption.innerHTML = wp.capt[CURRENT_LANG] || wp.capt.en;
+  tourCaption.classList.remove('ui-hidden');
+
+  // Schedule next step (only when playing)
+  tourStepStart = Date.now();
+  tourRemaining = wp.dwell;
+  if (tourState === 'playing') {
+    tourTimer = setTimeout(() => {
+      showWaypoint((i + 1) % TOUR.length);
+    }, tourRemaining);
+  }
+}
+
+function pauseTour() {
+  if (tourState !== 'playing') return;
+  clearTimeout(tourTimer);
+  // Remember how much time was left on this step.
+  const elapsed = Date.now() - tourStepStart;
+  tourRemaining = Math.max(0, tourRemaining - elapsed);
+  tourState = 'paused';
+  refreshLangStrings();
+}
+function resumeTour() {
+  if (tourState !== 'paused') return;
+  tourState = 'playing';
+  tourStepStart = Date.now();
+  tourTimer = setTimeout(() => {
+    showWaypoint((tourIndex + 1) % TOUR.length);
+  }, tourRemaining);
+  refreshLangStrings();
+}
+function stopTour() {
+  tourState = 'idle';
+  clearTimeout(tourTimer);
+  tourCaption.classList.add('ui-hidden');
+  tourStopBtn.classList.add('ui-hidden');
+  refreshLangStrings();
+}
+function startTour() {
+  resetViewer();
+  tourState = 'playing';
+  tourStopBtn.classList.remove('ui-hidden');
+  refreshLangStrings();
+  showWaypoint(0);
+}
+
+tourBtn.addEventListener('click', () => {
+  if      (tourState === 'idle')    startTour();
+  else if (tourState === 'playing') pauseTour();
+  else                              resumeTour();
+});
+tourStopBtn.addEventListener('click', stopTour);
+
+// C1: velocity arrows toggle
+const arrowsBtn = document.getElementById('arrows-btn');
+arrowsBtn.addEventListener('click', () => {
+  arrowGroup.visible = !arrowGroup.visible;
+  arrowsBtn.style.background = arrowGroup.visible
+    ? 'rgba(60,120,200,0.5)' : 'rgba(20,30,50,0.5)';
+});
+
+// C2: auto-rotate
+const rotateBtn = document.getElementById('rotate-btn');
+rotateBtn.addEventListener('click', () => {
+  controls.autoRotate = !controls.autoRotate;
+  controls.autoRotateSpeed = 1.0;  // moderate speed
+  rotateBtn.style.background = controls.autoRotate
+    ? 'rgba(60,120,200,0.5)' : 'rgba(20,30,50,0.5)';
+});
+
+// B5: F1 / ? key shows expanded help overlay
+document.addEventListener('keydown', (e) => {
+  if (e.target && e.target.tagName === 'INPUT') return;
+  if (e.key === '?' || e.key === 'F1') {
+    e.preventDefault();
+    introOverlay.classList.toggle('ui-hidden');
+  }
+});
+
+// Allow the intro lang selector to also drive the main UI language.
+document.querySelectorAll('.lang-select').forEach(b => {
+  b.addEventListener('click', () => {
+    CURRENT_LANG = b.dataset.lang;
+    langSelect.value = CURRENT_LANG;
+    refreshLangStrings();
+  });
+});
+
+(async function init() {
+  await loadManifest();
+  for (const s of [sizeSlider, filterSlider, brightSlider, dmBrightSlider,
+                    bloomSlider, expoSlider]) {
+    s.dispatchEvent(new Event('input'));
+  }
+  syncToggles();
+  applyColorBy(0);  // default: temperature
+  refreshLangStrings();
+  // Start at z=0 (snap 13) -- the most visually interesting frame.
+  timeSlider.value = 13;
+  const snap = await loadSnapshot(13);
+  applySnapshot(snap);
+  animate();
+})();
+</script>
+</body>
+</html>
