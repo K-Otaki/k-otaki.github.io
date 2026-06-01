@@ -46,6 +46,36 @@
   #show-ui-btn:hover, #toggle-legend-btn:hover { background: rgba(20,30,50,0.85); }
   .ui-hidden { display: none !important; }
 
+  /* Initial full-screen loading screen */
+  #loading-screen {
+    position: absolute; inset: 0;
+    background: #02030a;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    z-index: 2000;
+    color: #cde;
+    transition: opacity 0.5s;
+  }
+  #loading-screen.fade { opacity: 0; pointer-events: none; }
+  #loading-screen h1 {
+    margin: 0 0 6px; font-size: 24px; font-weight: 600; color: #fff;
+    letter-spacing: 0.02em;
+  }
+  #loading-screen .sub { font-size: 13px; color: #89a; margin-bottom: 28px; }
+  #loading-screen .bar-wrap {
+    width: 320px; height: 6px; background: #1a2236;
+    border-radius: 3px; overflow: hidden;
+  }
+  #loading-screen .bar-fill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, #2a6, #6ad, #fc6);
+    transition: width 0.2s;
+  }
+  #loading-screen .pct {
+    margin-top: 10px; font-size: 12px; color: #9ac;
+    font-variant-numeric: tabular-nums;
+  }
+
   /* Intro modal */
   #intro-overlay {
     position: absolute; inset: 0;
@@ -264,6 +294,13 @@
 </head>
 <body>
 <canvas id="c"></canvas>
+
+<div id="loading-screen">
+  <h1>Cosmological Hydrodynamics</h1>
+  <div class="sub" id="loading-sub">loading simulation data…</div>
+  <div class="bar-wrap"><div class="bar-fill" id="loading-fill"></div></div>
+  <div class="pct" id="loading-pct">0%</div>
+</div>
 
 <div id="z-banner">
   <div class="big">z = <span id="z-big">0.00</span></div>
@@ -906,6 +943,22 @@ const cache = new Map();    // `${kind}:${frame}` -> {positions, colors, filterV
 async function loadManifest() {
   const r = await fetch('threejs_data/manifest.json');
   manifest = await r.json();
+}
+
+// Fetch an ArrayBuffer with byte-level progress via XHR (fetch() streaming is
+// fiddlier for total-size). onProgress(loaded, total) is called as bytes arrive.
+function fetchWithProgress(url, onProgress) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', url);
+    xhr.responseType = 'arraybuffer';
+    xhr.onprogress = (e) => { if (onProgress) onProgress(e.loaded, e.total); };
+    xhr.onload  = () => (xhr.status >= 200 && xhr.status < 300)
+                          ? resolve(xhr.response)
+                          : reject(new Error(`HTTP ${xhr.status} for ${url}`));
+    xhr.onerror = () => reject(new Error(`network error for ${url}`));
+    xhr.send();
+  });
 }
 
 function unpackGasBuffer(buf, n) {
@@ -1813,19 +1866,63 @@ document.querySelectorAll('.lang-select').forEach(b => {
   syncToggles();
   applyColorBy(0);  // default: temperature
   refreshLangStrings();
-  // Start at z=0 (snap 13) -- the most visually interesting frame.
+  // --- Initial frame load with a full-screen progress bar ---
+  const loadingScreen = document.getElementById('loading-screen');
+  const loadingFill   = document.getElementById('loading-fill');
+  const loadingPct    = document.getElementById('loading-pct');
+  const loadingSub    = document.getElementById('loading-sub');
+
   timeSlider.value = 13;
-  const snap = await loadSnapshot(13);
+  const startFrame = 13;
+  const sMeta = manifest.snapshots.find(s => s.frame === startFrame);
+
+  // Two initial files: DM bin + the active volume bin. Track combined bytes.
+  const volKind = getActiveVolKind();
+  const dmFile  = 'threejs_data/' + sMeta.dm_file;
+  const volFile = 'threejs_data/' + sMeta[`vol_${volKind}_file`];
+  const dmBytesEst  = (sMeta.dm_n || 250000) * 7 * 4;
+  const volBytesEst = (sMeta.vol_res || 128) ** 3 *
+                      (sMeta[`vol_${volKind}_channels`] || 4);
+  const totalEst = dmBytesEst + volBytesEst;
+  let dmLoaded = 0, volLoaded = 0;
+  const updateBar = () => {
+    const pct = Math.min(100, Math.round(100 * (dmLoaded + volLoaded) / totalEst));
+    loadingFill.style.width = `${pct}%`;
+    loadingPct.textContent = `${pct}%`;
+  };
+  loadingSub.textContent = (CURRENT_LANG === 'ja')
+    ? 'シミュレーションデータを読み込み中…' : 'loading simulation data…';
+
+  // Fetch both with progress, populate the cache, then apply.
+  const [dmBuf, volBuf] = await Promise.all([
+    fetchWithProgress(dmFile,  (l) => { dmLoaded = l;  updateBar(); }),
+    fetchWithProgress(volFile, (l) => { volLoaded = l; updateBar(); }),
+  ]);
+  loadingFill.style.width = '100%'; loadingPct.textContent = '100%';
+
+  // Stuff into the cache so loadSnapshot returns them instantly.
+  cache.set(`dm:${startFrame}`, unpackDmBuffer(new Float32Array(dmBuf), sMeta.dm_n));
+  cache.set(`vol_${volKind}:${startFrame}`, {
+    data: new Uint8Array(volBuf),
+    res: sMeta.vol_res || 128,
+    channels: sMeta[`vol_${volKind}_channels`] || 4,
+    kind: volKind,
+  });
+
+  const snap = await loadSnapshot(startFrame);
   applySnapshot(snap);
   animate();
 
-  // Background prefetch: DM (always shown) + current-quantity volume bins.
-  // Particles are NOT prefetched until the user actually clicks "particles".
+  // Fade out the loading screen.
+  loadingScreen.classList.add('fade');
+  setTimeout(() => loadingScreen.classList.add('ui-hidden'), 600);
+
+  // Background prefetch of the remaining frames.
   setTimeout(() => {
     prefetchDM();
     if (gasModeIsVolume()) prefetchVolumes(getActiveVolKind());
     else                    prefetchParticles();
-  }, 600);
+  }, 800);
 })();
 </script>
 </body>
