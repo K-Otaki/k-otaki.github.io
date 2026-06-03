@@ -8,17 +8,17 @@
       "age_at_z_gyr": 0.04897170340472407,
       "gas_file": "gas_0000.bin",
       "gas_n": 300000,
-      "gas_format": "xyz_scalars3",
+      "gas_format": "xyz_f32_s3_u8",
       "dm_file": "dm_0000.bin",
       "dm_n": 250000,
-      "dm_format": "xyz_rgb_filter",
+      "dm_format": "xyz_f32_rgb_u8",
       "vol_T_file": "vol_T_0000.bin",
       "vol_T_channels": 4,
       "vol_rho_file": "vol_rho_0000.bin",
       "vol_rho_channels": 1,
       "vol_P_file": "vol_P_0000.bin",
       "vol_P_channels": 4,
-      "vol_res": 128
+      "vol_res": 96
     },
     {
       "frame": 1,
@@ -28,17 +28,17 @@
       "age_at_z_gyr": 0.19374048250422826,
       "gas_file": "gas_0001.bin",
       "gas_n": 300000,
-      "gas_format": "xyz_scalars3",
+      "gas_format": "xyz_f32_s3_u8",
       "dm_file": "dm_0001.bin",
       "dm_n": 250000,
-      "dm_format": "xyz_rgb_filter",
+      "dm_format": "xyz_f32_rgb_u8",
       "vol_T_file": "vol_T_0001.bin",
       "vol_T_channels": 4,
       "vol_rho_file": "vol_rho_0001.bin",
       "vol_rho_channels": 1,
       "vol_P_file": "vol_P_0001.bin",
       "vol_P_channels": 4,
-      "vol_res": 128
+      "vol_res": 96
     },
     {
       "frame": 2,
@@ -48,17 +48,17 @@
       "age_at_z_gyr": 0.5464352401002128,
       "gas_file": "gas_0002.bin",
       "gas_n": 300000,
-      "gas_format": "xyz_scalars3",
+      "gas_format": "xyz_f32_s3_u8",
       "dm_file": "dm_0002.bin",
       "dm_n": 250000,
-      "dm_format": "xyz_rgb_filter",
+      "dm_format": "xyz_f32_rgb_u8",
       "vol_T_file": "vol_T_0002.bin",
       "vol_T_channels": 4,
       "vol_rho_file": "vol_rho_0002.bin",
       "vol_rho_channels": 1,
       "vol_P_file": "vol_P_0002.bin",
       "vol_P_channels": 4,
-      "vol_res": 128
+      "vol_res": 96
     },
     {
       "frame": 3,
@@ -68,7 +68,7 @@
       "age_at_z_gyr": 1.0022185500906997,
       "gas_file": "gas_0003.bin",
       "gas_n": 300000,
-      "gas_format": "xyz_scalars3",
+      "gas_format": "xyz_f32_s3_u8",
       "halos": [
         {
           "rank": 0,
@@ -114,14 +114,14 @@
       ],
       "dm_file": "dm_0003.bin",
       "dm_n": 250000,
-      "dm_format": "xyz_rgb_filter",
+      "dm_format": "xyz_f32_rgb_u8",
       "vol_T_file": "vol_T_0003.bin",
       "vol_T_channels": 4,
       "vol_rho_file": "vol_rho_0003.bin",
       "vol_rho_channels": 1,
       "vol_P_file": "vol_P_0003.bin",
       "vol_P_channels": 4,
-      "vol_res": 128
+      "vol_res": 96
     },
     {
       "frame": 4,
@@ -131,7 +131,7 @@
       "age_at_z_gyr": 1.5465244828254423,
       "gas_file": "gas_0004.bin",
       "gas_n": 300000,
-      "gas_format": "xyz_scalars3",
+      "gas_format": "xyz_f32_s3_u8",
       "halos": [
         {
           "rank": 0,
@@ -2019,14 +2019,14 @@
       ],
       "dm_file": "dm_0004.bin",
       "dm_n": 250000,
-      "dm_format": "xyz_rgb_filter",
+      "dm_format": "xyz_f32_rgb_u8",
       "vol_T_file": "vol_T_0004.bin",
       "vol_T_channels": 4,
       "vol_rho_file": "vol_rho_0004.bin",
       "vol_rho_channels": 1,
       "vol_P_file": "vol_P_0004.bin",
       "vol_P_channels": 4,
-      "vol_res": 128
+      "vol_res": 96
     },
     {
       "frame": 5,
@@ -2036,7 +2036,7 @@
       "age_at_z_gyr": 2.15030087049251,
       "gas_file": "gas_0005.bin",
       "gas_n": 300000,
-      "gas_format": "xyz_scalars3",
+      "gas_format": "xyz_f32_s3_u8",
       "halos": [
         {
           "rank": 0,
@@ -4764,14 +4764,14 @@
       ],
       "dm_file": "dm_0005.bin",
       "dm_n": 250000,
-      "dm_format": "xyz_rgb_filter",
+      "dm_format": "xyz_f32_rgb_u8",
       "vol_T_file": "vol_T_0005.bin",
       "vol_T_channels": 4,
       "vol_rho_file": "vol_rho_0005.bin",
       "vol_rho_channels": 1,
       "vol_P_file": "vol_P_0005.bin",
       "vol_P_channels": 4,
-      "vol_res": 128
+      "vol_res": 96
     },
     {
       "frame": 6,
@@ -4781,7 +4781,7 @@
       "age_at_z_gyr": 2.81946798091888,
       "gas_file": "gas_0006.bin",
       "gas_n": 300000,
-      "gas_format": "xyz_scalars3",
+      "gas_format": "xyz_f32_s3_u8",
       "halos": [
         {
           "rank": 0,
@@ -7509,14 +7509,14 @@
       ],
       "dm_file": "dm_0006.bin",
       "dm_n": 250000,
-      "dm_format": "xyz_rgb_filter",
+      "dm_format": "xyz_f32_rgb_u8",
       "vol_T_file": "vol_T_0006.bin",
       "vol_T_channels": 4,
       "vol_rho_file": "vol_rho_0006.bin",
       "vol_rho_channels": 1,
       "vol_P_file": "vol_P_0006.bin",
       "vol_P_channels": 4,
-      "vol_res": 128
+      "vol_res": 96
     },
     {
       "frame": 7,
@@ -7526,7 +7526,7 @@
       "age_at_z_gyr": 4.278234715144895,
       "gas_file": "gas_0007.bin",
       "gas_n": 300000,
-      "gas_format": "xyz_scalars3",
+      "gas_format": "xyz_f32_s3_u8",
       "halos": [
         {
           "rank": 0,
@@ -10254,14 +10254,14 @@
       ],
       "dm_file": "dm_0007.bin",
       "dm_n": 250000,
-      "dm_format": "xyz_rgb_filter",
+      "dm_format": "xyz_f32_rgb_u8",
       "vol_T_file": "vol_T_0007.bin",
       "vol_T_channels": 4,
       "vol_rho_file": "vol_rho_0007.bin",
       "vol_rho_channels": 1,
       "vol_P_file": "vol_P_0007.bin",
       "vol_P_channels": 4,
-      "vol_res": 128
+      "vol_res": 96
     },
     {
       "frame": 8,
@@ -10271,7 +10271,7 @@
       "age_at_z_gyr": 5.880572985551685,
       "gas_file": "gas_0008.bin",
       "gas_n": 300000,
-      "gas_format": "xyz_scalars3",
+      "gas_format": "xyz_f32_s3_u8",
       "halos": [
         {
           "rank": 0,
@@ -12999,14 +12999,14 @@
       ],
       "dm_file": "dm_0008.bin",
       "dm_n": 250000,
-      "dm_format": "xyz_rgb_filter",
+      "dm_format": "xyz_f32_rgb_u8",
       "vol_T_file": "vol_T_0008.bin",
       "vol_T_channels": 4,
       "vol_rho_file": "vol_rho_0008.bin",
       "vol_rho_channels": 1,
       "vol_P_file": "vol_P_0008.bin",
       "vol_P_channels": 4,
-      "vol_res": 128
+      "vol_res": 96
     },
     {
       "frame": 9,
@@ -13016,7 +13016,7 @@
       "age_at_z_gyr": 7.498162540733176,
       "gas_file": "gas_0009.bin",
       "gas_n": 300000,
-      "gas_format": "xyz_scalars3",
+      "gas_format": "xyz_f32_s3_u8",
       "halos": [
         {
           "rank": 0,
@@ -15744,14 +15744,14 @@
       ],
       "dm_file": "dm_0009.bin",
       "dm_n": 250000,
-      "dm_format": "xyz_rgb_filter",
+      "dm_format": "xyz_f32_rgb_u8",
       "vol_T_file": "vol_T_0009.bin",
       "vol_T_channels": 4,
       "vol_rho_file": "vol_rho_0009.bin",
       "vol_rho_channels": 1,
       "vol_P_file": "vol_P_0009.bin",
       "vol_P_channels": 4,
-      "vol_res": 128
+      "vol_res": 96
     },
     {
       "frame": 10,
@@ -15761,7 +15761,7 @@
       "age_at_z_gyr": 9.171232688577868,
       "gas_file": "gas_0010.bin",
       "gas_n": 300000,
-      "gas_format": "xyz_scalars3",
+      "gas_format": "xyz_f32_s3_u8",
       "halos": [
         {
           "rank": 0,
@@ -18489,14 +18489,14 @@
       ],
       "dm_file": "dm_0010.bin",
       "dm_n": 250000,
-      "dm_format": "xyz_rgb_filter",
+      "dm_format": "xyz_f32_rgb_u8",
       "vol_T_file": "vol_T_0010.bin",
       "vol_T_channels": 4,
       "vol_rho_file": "vol_rho_0010.bin",
       "vol_rho_channels": 1,
       "vol_P_file": "vol_P_0010.bin",
       "vol_P_channels": 4,
-      "vol_res": 128
+      "vol_res": 96
     },
     {
       "frame": 11,
@@ -18506,7 +18506,7 @@
       "age_at_z_gyr": 10.78744737300337,
       "gas_file": "gas_0011.bin",
       "gas_n": 300000,
-      "gas_format": "xyz_scalars3",
+      "gas_format": "xyz_f32_s3_u8",
       "halos": [
         {
           "rank": 0,
@@ -21234,14 +21234,14 @@
       ],
       "dm_file": "dm_0011.bin",
       "dm_n": 250000,
-      "dm_format": "xyz_rgb_filter",
+      "dm_format": "xyz_f32_rgb_u8",
       "vol_T_file": "vol_T_0011.bin",
       "vol_T_channels": 4,
       "vol_rho_file": "vol_rho_0011.bin",
       "vol_rho_channels": 1,
       "vol_P_file": "vol_P_0011.bin",
       "vol_P_channels": 4,
-      "vol_res": 128
+      "vol_res": 96
     },
     {
       "frame": 12,
@@ -21251,7 +21251,7 @@
       "age_at_z_gyr": 12.299120191019316,
       "gas_file": "gas_0012.bin",
       "gas_n": 300000,
-      "gas_format": "xyz_scalars3",
+      "gas_format": "xyz_f32_s3_u8",
       "halos": [
         {
           "rank": 0,
@@ -23979,14 +23979,14 @@
       ],
       "dm_file": "dm_0012.bin",
       "dm_n": 250000,
-      "dm_format": "xyz_rgb_filter",
+      "dm_format": "xyz_f32_rgb_u8",
       "vol_T_file": "vol_T_0012.bin",
       "vol_T_channels": 4,
       "vol_rho_file": "vol_rho_0012.bin",
       "vol_rho_channels": 1,
       "vol_P_file": "vol_P_0012.bin",
       "vol_P_channels": 4,
-      "vol_res": 128
+      "vol_res": 96
     },
     {
       "frame": 13,
@@ -23996,7 +23996,7 @@
       "age_at_z_gyr": 13.802729313728554,
       "gas_file": "gas_0013.bin",
       "gas_n": 300000,
-      "gas_format": "xyz_scalars3",
+      "gas_format": "xyz_f32_s3_u8",
       "halos": [
         {
           "rank": 0,
@@ -26724,14 +26724,14 @@
       ],
       "dm_file": "dm_0013.bin",
       "dm_n": 250000,
-      "dm_format": "xyz_rgb_filter",
+      "dm_format": "xyz_f32_rgb_u8",
       "vol_T_file": "vol_T_0013.bin",
       "vol_T_channels": 4,
       "vol_rho_file": "vol_rho_0013.bin",
       "vol_rho_channels": 1,
       "vol_P_file": "vol_P_0013.bin",
       "vol_P_channels": 4,
-      "vol_res": 128
+      "vol_res": 96
     }
   ],
   "cosmology": {
