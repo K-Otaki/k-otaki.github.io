@@ -19,22 +19,31 @@
   #z-banner .sub {
     font-size: 14px; color: #9ac; margin-top: 4px; letter-spacing: 0.01em;
   }
+  /* Same centered box as #tour-loading so it never overlaps the controls
+     and reads as one consistent widget. */
   #prefetch-indicator {
-    position: absolute; bottom: 16px; left: 22px;
-    background: rgba(8,12,22,0.78);
-    border: 1px solid #345; border-radius: 6px;
-    padding: 6px 12px; color: #cde; font-size: 12px;
-    pointer-events: none;
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(8,12,22,0.88);
+    border: 1px solid #345; border-radius: 8px;
+    padding: 18px 26px; color: #cde; font-size: 14px;
+    text-align: center;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    z-index: 60;
   }
   #prefetch-indicator .bar {
-    display: block; width: 180px; height: 4px;
-    background: #234; border-radius: 2px; margin-top: 4px;
-    overflow: hidden;
+    display: block; width: 240px; height: 5px;
+    background: #1a2236; border-radius: 3px; overflow: hidden; margin-top: 2px;
   }
   #prefetch-indicator .bar .fill {
-    height: 100%; background: linear-gradient(90deg, #6ad, #fc6);
+    height: 100%; background: linear-gradient(90deg, #2a6, #6ad, #fc6);
     width: 0%; transition: width 0.15s;
   }
+  #prefetch-pause {
+    background: rgba(20,30,50,0.6); color: #cde;
+    border: 1px solid #456; border-radius: 4px;
+    padding: 3px 12px; font-size: 12px; cursor: pointer;
+  }
+  #prefetch-pause:hover { background: rgba(40,60,90,0.8); }
   #show-ui-btn, #toggle-legend-btn {
     position: absolute; right: 16px;
     background: rgba(8,12,22,0.78); color: #cde;
@@ -141,6 +150,21 @@
     z-index: 50;
   }
   #tour-caption .sub { color: #9ac; font-size: 12px; margin-top: 4px; }
+  #tour-loading {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: rgba(8,12,22,0.88); border: 1px solid #345; border-radius: 8px;
+    padding: 18px 26px; color: #cde; font-size: 14px; text-align: center;
+    z-index: 60; pointer-events: none;
+  }
+  #tour-loading .bar-wrap {
+    width: 220px; height: 5px; background: #1a2236; border-radius: 3px;
+    margin: 10px auto 0; overflow: hidden;
+  }
+  #tour-loading .bar-fill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, #2a6, #6ad, #fc6);
+    transition: width 0.15s;
+  }
 
   /* Halo popup (shown on click) */
   #halo-popup {
@@ -343,6 +367,7 @@
 <div id="prefetch-indicator" class="ui-hidden">
   <span id="prefetch-label">Preloading…</span>
   <span class="bar"><span class="fill" id="prefetch-fill"></span></span>
+  <button id="prefetch-pause">‖ Pause download</button>
 </div>
 
 <div id="halo-popup" class="ui-hidden"></div>
@@ -366,6 +391,10 @@
 </div>
 
 <div id="tour-caption" class="ui-hidden"></div>
+<div id="tour-loading" class="ui-hidden">
+  <span id="tour-loading-label">Preparing tour…</span>
+  <span class="bar-wrap"><span class="bar-fill" id="tour-loading-fill"></span></span>
+</div>
 
 <div id="colorbar">
   <div class="ticks" id="cbar-ticks">
@@ -937,11 +966,18 @@ canvas.addEventListener('pointermove', (e) => {
 });
 
 // ---- Data loading ----
+// Bump DATA_VERSION whenever the binary format changes, so browsers don't
+// serve a stale cached .bin that the current reader would misinterpret
+// (e.g. old int16 9-byte records read as float32 15-byte -> particles fly
+// off in straight streaks outside the box).
+const DATA_VERSION = 'v2-f32';
+const V = (url) => url + (url.includes('?') ? '&' : '?') + 'ver=' + DATA_VERSION;
+
 let manifest = null;
 const cache = new Map();    // `${kind}:${frame}` -> {positions, colors, filterValues, n}
 
 async function loadManifest() {
-  const r = await fetch('threejs_data/manifest.json');
+  const r = await fetch(V('threejs_data/manifest.json'));
   manifest = await r.json();
 }
 
@@ -961,34 +997,40 @@ function fetchWithProgress(url, onProgress) {
   });
 }
 
-function unpackGasBuffer(buf, n) {
-  // Gas bin: 6 floats per particle (xyz + log_T_norm + log_rho_norm + log_P_norm).
+// Gas bin: per particle = float32 x,y,z (12B) + uint8 s0,s1,s2 (3B) = 15B.
+// float32 positions avoid the lattice artifact that int16/float16 produce.
+function unpackGasBuffer(arrayBuf, n) {
+  const dv = new DataView(arrayBuf);
   const positions = new Float32Array(n * 3);
   const scalars   = new Float32Array(n * 3);
   for (let i = 0; i < n; i++) {
-    positions[i * 3 + 0] = buf[i * 6 + 0];
-    positions[i * 3 + 1] = buf[i * 6 + 1];
-    positions[i * 3 + 2] = buf[i * 6 + 2];
-    scalars[i * 3 + 0]   = buf[i * 6 + 3];
-    scalars[i * 3 + 1]   = buf[i * 6 + 4];
-    scalars[i * 3 + 2]   = buf[i * 6 + 5];
+    const o = i * 15;
+    positions[i*3+0] = dv.getFloat32(o,     true);
+    positions[i*3+1] = dv.getFloat32(o + 4, true);
+    positions[i*3+2] = dv.getFloat32(o + 8, true);
+    scalars[i*3+0] = dv.getUint8(o + 12) / 255.0;
+    scalars[i*3+1] = dv.getUint8(o + 13) / 255.0;
+    scalars[i*3+2] = dv.getUint8(o + 14) / 255.0;
   }
   return { positions, scalars, n };
 }
 
-function unpackDmBuffer(buf, n) {
-  // DM bin: 7 floats per particle (xyz + rgb + filter).
+// DM bin: per particle = float32 x,y,z (12B) + uint8 r,g,b (3B) = 15B.
+function unpackDmBuffer(arrayBuf, n) {
+  const dv = new DataView(arrayBuf);
   const positions = new Float32Array(n * 3);
   const colors    = new Float32Array(n * 3);
   const filterValues = new Float32Array(n);
   for (let i = 0; i < n; i++) {
-    positions[i * 3 + 0] = buf[i * 7 + 0];
-    positions[i * 3 + 1] = buf[i * 7 + 1];
-    positions[i * 3 + 2] = buf[i * 7 + 2];
-    colors[i * 3 + 0]    = buf[i * 7 + 3];
-    colors[i * 3 + 1]    = buf[i * 7 + 4];
-    colors[i * 3 + 2]    = buf[i * 7 + 5];
-    filterValues[i]      = buf[i * 7 + 6];
+    const o = i * 15;
+    positions[i*3+0] = dv.getFloat32(o,     true);
+    positions[i*3+1] = dv.getFloat32(o + 4, true);
+    positions[i*3+2] = dv.getFloat32(o + 8, true);
+    const r = dv.getUint8(o + 12) / 255.0;
+    const g = dv.getUint8(o + 13) / 255.0;
+    const b = dv.getUint8(o + 14) / 255.0;
+    colors[i*3+0] = r; colors[i*3+1] = g; colors[i*3+2] = b;
+    filterValues[i] = (r + g + b) / 3.0;     // derived (was a separate float)
   }
   return { positions, colors, filterValues, n };
 }
@@ -1001,9 +1043,8 @@ async function loadOne(frame, kind /* 'gas' | 'dm' */) {
   const file = kind === 'gas' ? meta.gas_file : meta.dm_file;
   const n    = kind === 'gas' ? meta.gas_n    : meta.dm_n;
   if (!file) return null;
-  const resp = await fetch('threejs_data/' + file);
-  const buf = new Float32Array(await resp.arrayBuffer());
-  const obj = (kind === 'gas') ? unpackGasBuffer(buf, n) : unpackDmBuffer(buf, n);
+  const arrayBuf = await (await fetch(V('threejs_data/' + file))).arrayBuffer();
+  const obj = (kind === 'gas') ? unpackGasBuffer(arrayBuf, n) : unpackDmBuffer(arrayBuf, n);
   cache.set(key, obj);
   return obj;
 }
@@ -1024,7 +1065,7 @@ async function loadVolume(frame, kind) {
   const file = meta[`vol_${kind}_file`];
   const channels = meta[`vol_${kind}_channels`] || 4;
   if (!file) return null;
-  const resp = await fetch('threejs_data/' + file);
+  const resp = await fetch(V('threejs_data/' + file));
   const buf = new Uint8Array(await resp.arrayBuffer());
   const res = meta.vol_res || Math.round(Math.cbrt(buf.length / channels));
   const obj = { data: buf, res, channels, kind };
@@ -1401,6 +1442,19 @@ const prefetchFill = document.getElementById('prefetch-fill');
 const prefetched = new Set();    // tag of fully-prefetched data sets
 let prefetchChain = Promise.resolve();   // serial queue (one set at a time)
 let hideTimer = null;
+let prefetchPaused = false;
+
+const prefetchPauseBtn = document.getElementById('prefetch-pause');
+prefetchPauseBtn.addEventListener('click', () => {
+  prefetchPaused = !prefetchPaused;
+  prefetchPauseBtn.textContent = prefetchPaused
+    ? (CURRENT_LANG === 'ja' ? '▶ ダウンロード再開' : '▶ Resume download')
+    : (CURRENT_LANG === 'ja' ? '‖ ダウンロード一時停止' : '‖ Pause download');
+});
+const waitWhilePaused = () => new Promise(res => {
+  if (!prefetchPaused) return res();
+  const t = setInterval(() => { if (!prefetchPaused) { clearInterval(t); res(); } }, 200);
+});
 
 async function _runPrefetch(label, tag, fetchFn) {
   if (prefetched.has(tag)) return;
@@ -1411,6 +1465,7 @@ async function _runPrefetch(label, tag, fetchFn) {
   prefetchEl.classList.remove('ui-hidden');
   const showLabel = (CURRENT_LANG === 'ja') ? `事前ロード ${label}` : `Preloading ${label}`;
   for (let i = 0; i < frames.length; i++) {
+    await waitWhilePaused();
     prefetchLbl.textContent = `${showLabel}: ${i + 1}/${frames.length}`;
     prefetchFill.style.width = `${Math.round(100 * (i + 1) / frames.length)}%`;
     await fetchFn(frames[i]);
@@ -1685,6 +1740,7 @@ const TOUR = [
             ja: "圧力で色分け — 銀河団中心が際立つ。" }, dwell: 4000 },
 ];
 let tourState = 'idle';       // 'idle' | 'playing' | 'paused'
+let tourPreloaded = false;    // set once tour data is cached (initial loader)
 let tourTimer = null;
 let tourIndex = 0;
 let tourStepStart = 0;        // ms timestamp when current step entered playing
@@ -1807,8 +1863,51 @@ function stopTour() {
   tourStopBtn.classList.add('ui-hidden');
   refreshLangStrings();
 }
-function startTour() {
+const tourLoading    = document.getElementById('tour-loading');
+const tourLoadingLbl = document.getElementById('tour-loading-label');
+const tourLoadingFill= document.getElementById('tour-loading-fill');
+
+// Collect every (frame, dataset) the tour will need so we can preload with a
+// progress bar before playback begins -- avoids the multi-second stall on the
+// first waypoint while an 8 MB volume downloads.
+function tourRequiredLoads() {
+  const loads = [];
+  const seen = new Set();
+  for (const wp of TOUR) {
+    const f = wp.frame;
+    // DM is always shown.
+    let key = `dm:${f}`;
+    if (!seen.has(key)) { seen.add(key); loads.push(() => loadOne(f, 'dm')); }
+    // Volume for this waypoint's colorBy (0=T,1=rho,2=P).
+    const kind = (wp.colorBy === 0) ? 'T' : (wp.colorBy === 1) ? 'rho' : 'P';
+    key = `vol_${kind}:${f}`;
+    if (!seen.has(key)) { seen.add(key); loads.push(() => loadVolume(f, kind)); }
+  }
+  return loads;
+}
+
+async function startTour() {
   resetViewer();
+  // Tour data is normally preloaded during the initial loading screen
+  // (tourPreloaded). In the rare case the user clicks Tour before that
+  // finished, fall back to loading on the fly with the centered box.
+  if (!tourPreloaded) {
+    const loads = tourRequiredLoads();
+    tourLoadingLbl.textContent =
+      (CURRENT_LANG === 'ja') ? 'ツアーを準備中…' : 'Preparing tour…';
+    tourLoading.classList.remove('ui-hidden');
+    tourBtn.disabled = true;
+    let done = 0;
+    for (const fn of loads) {
+      await fn();
+      done++;
+      tourLoadingFill.style.width = `${Math.round(100 * done / loads.length)}%`;
+    }
+    tourLoading.classList.add('ui-hidden');
+    tourBtn.disabled = false;
+    tourPreloaded = true;
+  }
+
   tourState = 'playing';
   tourStopBtn.classList.remove('ui-hidden');
   refreshLangStrings();
@@ -1878,10 +1977,10 @@ document.querySelectorAll('.lang-select').forEach(b => {
 
   // Two initial files: DM bin + the active volume bin. Track combined bytes.
   const volKind = getActiveVolKind();
-  const dmFile  = 'threejs_data/' + sMeta.dm_file;
-  const volFile = 'threejs_data/' + sMeta[`vol_${volKind}_file`];
-  const dmBytesEst  = (sMeta.dm_n || 250000) * 7 * 4;
-  const volBytesEst = (sMeta.vol_res || 128) ** 3 *
+  const dmFile  = V('threejs_data/' + sMeta.dm_file);
+  const volFile = V('threejs_data/' + sMeta[`vol_${volKind}_file`]);
+  const dmBytesEst  = (sMeta.dm_n || 250000) * 15;  // float32 xyz + uint8 rgb
+  const volBytesEst = (sMeta.vol_res || 96) ** 3 *
                       (sMeta[`vol_${volKind}_channels`] || 4);
   const totalEst = dmBytesEst + volBytesEst;
   let dmLoaded = 0, volLoaded = 0;
@@ -1893,18 +1992,21 @@ document.querySelectorAll('.lang-select').forEach(b => {
   loadingSub.textContent = (CURRENT_LANG === 'ja')
     ? 'シミュレーションデータを読み込み中…' : 'loading simulation data…';
 
-  // Fetch both with progress, populate the cache, then apply.
+  // Phase 1 (0-40%): first frame so we can render something quickly.
+  const phase1 = (l1, l2) => {
+    const pct = Math.min(40, Math.round(40 * (l1 + l2) / totalEst));
+    loadingFill.style.width = `${pct}%`;
+    loadingPct.textContent = `${pct}%`;
+  };
   const [dmBuf, volBuf] = await Promise.all([
-    fetchWithProgress(dmFile,  (l) => { dmLoaded = l;  updateBar(); }),
-    fetchWithProgress(volFile, (l) => { volLoaded = l; updateBar(); }),
+    fetchWithProgress(dmFile,  (l) => { dmLoaded = l;  phase1(dmLoaded, volLoaded); }),
+    fetchWithProgress(volFile, (l) => { volLoaded = l; phase1(dmLoaded, volLoaded); }),
   ]);
-  loadingFill.style.width = '100%'; loadingPct.textContent = '100%';
 
-  // Stuff into the cache so loadSnapshot returns them instantly.
-  cache.set(`dm:${startFrame}`, unpackDmBuffer(new Float32Array(dmBuf), sMeta.dm_n));
+  cache.set(`dm:${startFrame}`, unpackDmBuffer(dmBuf, sMeta.dm_n));
   cache.set(`vol_${volKind}:${startFrame}`, {
     data: new Uint8Array(volBuf),
-    res: sMeta.vol_res || 128,
+    res: sMeta.vol_res || 96,
     channels: sMeta[`vol_${volKind}_channels`] || 4,
     kind: volKind,
   });
@@ -1913,11 +2015,26 @@ document.querySelectorAll('.lang-select').forEach(b => {
   applySnapshot(snap);
   animate();
 
+  // Phase 2 (40-100%): preload everything the guided Tour needs, so pressing
+  // ▶ Tour later never pops up a mid-screen loading box. Done here, on the
+  // initial full-screen loader, while the user reads the intro card.
+  loadingSub.textContent = (CURRENT_LANG === 'ja')
+    ? 'ツアーデータを準備中…' : 'preparing guided tour…';
+  const tourLoads = tourRequiredLoads();
+  for (let i = 0; i < tourLoads.length; i++) {
+    await tourLoads[i]();
+    const pct = 40 + Math.round(60 * (i + 1) / tourLoads.length);
+    loadingFill.style.width = `${pct}%`;
+    loadingPct.textContent = `${pct}%`;
+  }
+  tourPreloaded = true;
+  loadingFill.style.width = '100%'; loadingPct.textContent = '100%';
+
   // Fade out the loading screen.
   loadingScreen.classList.add('fade');
   setTimeout(() => loadingScreen.classList.add('ui-hidden'), 600);
 
-  // Background prefetch of the remaining frames.
+  // Background prefetch of the remaining frames (smooth Play / scrubbing).
   setTimeout(() => {
     prefetchDM();
     if (gasModeIsVolume()) prefetchVolumes(getActiveVolKind());
